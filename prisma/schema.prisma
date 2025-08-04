@@ -1,25 +1,51 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// prisma/schema.prisma
-
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// --- MODELO DE USUARIO (ÚNICA VERSIÓN CORRECTA) ---
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String?
+  password  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  // Relaciones añadidas
+  orders    Order[]
+  products  Product[]
+}
+
+// --- NUEVOS MODELOS ---
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  cost      Float    // Cuánto te cuesta el producto
+  price     Float    // A cuánto lo vendes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders    Order[]  // Relación: Un producto puede estar en muchas órdenes
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Order {
+  id          String   @id @default(cuid())
+  totalAmount Float    // Monto total de la orden
+  createdAt   DateTime @default(now())
+
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
 }
