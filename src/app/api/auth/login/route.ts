@@ -1,26 +1,60 @@
 // src/app/api/auth/login/route.ts
 import { NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { serialize } from 'cookie'; // <-- Importamos la función para crear cookies
+
+const prisma = new PrismaClient();
+const TOKEN_NAME = 'session_token'; // Nombre de nuestra cookie
 
 export async function POST(request: Request) {
   try {
-    // 1. Leer los datos (email y password) que envía el front-end
     const body = await request.json();
     const { email, password } = body;
 
-    // ESTO ES IMPORTANTE: El console.log de aquí se verá en la TERMINAL donde corre "npm run dev",
-    // no en la consola del navegador.
-    console.log('API RECIBIÓ:', { email, password });
+    if (!email || !password) {
+      return NextResponse.json({ message: 'Email y contraseña son requeridos' }, { status: 400 });
+    }
 
-    // 2. Lógica de autenticación (próximamente)
-    // TODO: Buscar el usuario en la base de datos con el email.
-    // TODO: Verificar que la contraseña coincida.
-    // TODO: Si todo está bien, generar un token de sesión.
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return NextResponse.json({ message: 'Credenciales inválidas' }, { status: 401 });
+    }
 
-    // 3. Por ahora, solo devolvemos un mensaje de éxito.
-    return NextResponse.json({ message: 'Login recibido con éxito' }, { status: 200 });
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      return NextResponse.json({ message: 'Credenciales inválidas' }, { status: 401 });
+    }
+
+    const tokenPayload = { userId: user.id, email: user.email };
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET!, {
+      expiresIn: '1d',
+    });
+
+    // --- ¡NUEVA PARTE: CREAR LA COOKIE! ---
+    const serializedCookie = serialize(TOKEN_NAME, token, {
+      httpOnly: true, // La cookie no es accesible desde el JavaScript del cliente
+      secure: process.env.NODE_ENV === 'production', // Solo se envía por HTTPS en producción
+      maxAge: 60 * 60 * 24, // 1 día de duración
+      path: '/', // La cookie está disponible en toda la aplicación
+    });
+
+    const { password: _, ...userWithoutPassword } = user;
+
+    // Devolvemos el usuario, pero el token ahora va en la cabecera como una cookie
+    return NextResponse.json(
+      { user: userWithoutPassword },
+      {
+        status: 200,
+        headers: { 'Set-Cookie': serializedCookie }, // <-- Establecemos la cookie
+      }
+    );
 
   } catch (error) {
-    // Si hay algún error, devolvemos un mensaje de error.
-    return NextResponse.json({ message: 'Error en el servidor', error }, { status: 500 });
+    console.error('Error en el login:', error);
+    return NextResponse.json({ message: 'Error en el servidor' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
