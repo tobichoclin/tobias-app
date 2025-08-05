@@ -31,7 +31,7 @@ export async function GET(request: Request) {
         client_id: process.env.MERCADOLIBRE_APP_ID!,
         client_secret: process.env.MERCADOLIBRE_SECRET_KEY!,
         code: code,
-        redirect_uri: process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI!,
+        redirect_uri: process.env.MERCADOLIBRE_REDIRECT_URI!,
       }),
     });
 
