@@ -1,38 +1,276 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+
+// --- Funciones para PKCE ---
+function base64URLEncode(str: Buffer) {
+  return str.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+}
+
+async function generateCodeChallenge(verifier: string) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(verifier);
+  const digest = await window.crypto.subtle.digest('SHA-256', data);
+  return base64URLEncode(Buffer.from(digest));
+}
+// --- Fin de Funciones ---
+
+interface UserProfile {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    createdAt: string;
+  };
+  mercadolibre: {
+    connected: boolean;
+    userId?: string;
+    expiresAt?: string;
+    profile?: {
+      nickname: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      permalink: string;
+    };
+  };
+}
+
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
-const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
-  const handleMercadoLibreConnect = () => {
-    // La URL de autorización para Argentina es auth.mercadolibre.com.ar
-    const authUrl = `https://auth.mercadolibre.com.ar/authorization?response_type=code&client_id=${appId}&redirect_uri=${redirectUri}`;
+  const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
+
+  // Cargar perfil del usuario al montar el componente
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const response = await fetch('/api/user/profile');
+        if (response.ok) {
+          const data = await response.json();
+          setUserProfile(data);
+        } else {
+          console.error('Error cargando perfil del usuario');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserProfile();
+
+    // Verificar si hay mensajes de error o éxito en la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const success = urlParams.get('success');
+    
+    if (error === 'MLAccountAlreadyLinked') {
+      alert('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
+    } else if (error === 'TokenError') {
+      alert('❌ Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
+    } else if (success === 'true') {
+      alert('✅ ¡Conexión con MercadoLibre exitosa!');
+      // Recargar el perfil para mostrar la nueva conexión
+      fetchUserProfile();
+    }
+
+    // Limpiar los parámetros de la URL
+    if (error || success) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  const handleMercadoLibreDisconnect = async () => {
+    if (confirm('¿Estás seguro de que quieres desconectar tu cuenta de MercadoLibre?')) {
+      try {
+        const response = await fetch('/api/auth/mercadolibre/disconnect', {
+          method: 'POST',
+        });
+
+        if (response.ok) {
+          alert('✅ Cuenta de MercadoLibre desconectada exitosamente');
+          // Recargar el perfil
+          const profileResponse = await fetch('/api/user/profile');
+          if (profileResponse.ok) {
+            const data = await profileResponse.json();
+            setUserProfile(data);
+          }
+        } else {
+          alert('❌ Error al desconectar la cuenta');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error al desconectar la cuenta');
+      }
+    }
+  };
+
+  const handleMercadoLibreConnect = async () => {
+    const codeVerifier = base64URLEncode(Buffer.from(window.crypto.getRandomValues(new Uint8Array(32))));
+    const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+    // Guardar el code_verifier en una cookie del cliente (accesible desde el servidor)
+    document.cookie = `pkce_code_verifier=${codeVerifier}; path=/; max-age=300; SameSite=Lax`;
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: appId!,
+      redirect_uri: redirectUri!,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+    });
+
+    // Usar localhost en lugar de la URL de ngrok para desarrollo local
+    const authUrl = `https://auth.mercadolibre.com.ar/authorization?${params.toString()}`;
     window.location.href = authUrl;
   };
 
-  const handleLogout = async () => { /* ... tu función de logout ... */ };
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        // Si el logout es exitoso en el servidor, redirigimos al login
+        router.push('/login');
+      } else {
+        console.error('Falló el cierre de sesión en el servidor');
+      }
+    } catch (error) {
+      console.error('Error al intentar cerrar sesión:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100">
-      <div className="rounded-lg bg-white p-8 text-center shadow-md">
-        <h1 className="text-4xl font-bold">¡Bienvenido al Dashboard!</h1>
-        <p className="mt-4 text-gray-600">Conecta tu cuenta para empezar.</p>
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header del Dashboard */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">¡Bienvenido, {userProfile?.user.name}!</h1>
+              <p className="text-gray-600 mt-2">Panel de control de tu cuenta</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="rounded-md bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700"
+            >
+              Cerrar Sesión
+            </button>
+          </div>
+        </div>
 
-        <button
-          onClick={handleMercadoLibreConnect}
-          className="mt-8 rounded-md bg-yellow-400 px-6 py-3 font-bold text-gray-800 transition-colors hover:bg-yellow-500"
-        >
-          Conectar con Mercado Libre
-        </button>
+        {/* Información del Usuario */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Tu Cuenta</h2>
+            <div className="space-y-3">
+              <div>
+                <span className="text-gray-600">Email:</span>
+                <span className="ml-2 font-medium">{userProfile?.user.email}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Miembro desde:</span>
+                <span className="ml-2 font-medium">
+                  {userProfile?.user.createdAt && new Date(userProfile.user.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
 
-        <button
-          onClick={handleLogout}
-          className="mt-4 rounded-md bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700"
-        >
-          Cerrar Sesión
-        </button>
+          {/* Estado de MercadoLibre */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">MercadoLibre</h2>
+            {userProfile?.mercadolibre.connected ? (
+              <div className="space-y-3">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                  <span className="text-green-700 font-medium">Conectado</span>
+                </div>
+                {userProfile.mercadolibre.profile && (
+                  <>
+                    <div>
+                      <span className="text-gray-600">Usuario:</span>
+                      <span className="ml-2 font-medium">{userProfile.mercadolibre.profile.nickname}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Nombre:</span>
+                      <span className="ml-2 font-medium">
+                        {userProfile.mercadolibre.profile.first_name} {userProfile.mercadolibre.profile.last_name}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div>
+                  <span className="text-gray-600">Token expira:</span>
+                  <span className="ml-2 font-medium">
+                    {userProfile.mercadolibre.expiresAt && 
+                      new Date(userProfile.mercadolibre.expiresAt).toLocaleString()}
+                  </span>
+                </div>
+                <button
+                  onClick={handleMercadoLibreDisconnect}
+                  className="w-full rounded-md bg-red-100 px-4 py-2 font-medium text-red-700 transition-colors hover:bg-red-200"
+                >
+                  Desconectar cuenta
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center">
+                  <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+                  <span className="text-gray-600">No conectado</span>
+                </div>
+                <button
+                  onClick={handleMercadoLibreConnect}
+                  className="w-full rounded-md bg-yellow-400 px-4 py-2 font-bold text-gray-800 transition-colors hover:bg-yellow-500"
+                >
+                  Conectar con MercadoLibre
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Próximas funcionalidades */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Próximamente</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-gray-900">Productos</h3>
+              <p className="text-sm text-gray-600 mt-1">Gestiona tu inventario</p>
+            </div>
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-gray-900">Órdenes</h3>
+              <p className="text-sm text-gray-600 mt-1">Rastrea tus ventas</p>
+            </div>
+            <div className="p-4 border border-gray-200 rounded-lg">
+              <h3 className="font-medium text-gray-900">Reportes</h3>
+              <p className="text-sm text-gray-600 mt-1">Analiza tu negocio</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
