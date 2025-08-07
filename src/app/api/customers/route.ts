@@ -55,7 +55,7 @@ async function getValidAccessToken(userId: string) {
 // --- API PRINCIPAL PARA OBTENER CLIENTES ---
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
     if (!sessionToken) return NextResponse.json({ message: 'No autenticado' }, { status: 401 });
