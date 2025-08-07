@@ -81,8 +81,11 @@ export default function DashboardPage() {
       try {
         const response = await fetch('/api/customers');
         if (response.ok) {
-          const data = await response.json();
-          setCustomers(data);
+          const data: Customer[] = await response.json();
+          const uniqueCustomers = Array.from(
+            new Map(data.map((c) => [c.mercadolibreId, c])).values()
+          );
+          setCustomers(uniqueCustomers);
         } else {
           console.error('Error cargando clientes');
         }
@@ -285,21 +288,37 @@ export default function DashboardPage() {
         {/* Listado de compradores */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Compradores</h2>
-          {customers.length > 0 ? (
-            <ul className="divide-y divide-gray-200">
-              {customers.map((customer) => (
-                <li key={customer.id} className="py-2">
-                  <span className="font-medium">{customer.nickname}</span>
-                  {customer.email && (
-                    <span className="ml-2 text-sm text-gray-600">{customer.email}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
+          {customersLoading ? (
+            <p className="text-gray-600">Cargando...</p>
+          ) : customers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {customers.map((customer) => (
+                    <tr key={customer.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        {customer.firstName || customer.lastName
+                          ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
+                          : 'N/A'}
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{customer.email ?? 'N/A'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <p className="text-gray-600">
-              {customersLoading ? 'Cargando...' : 'Aún no hay compradores.'}
-            </p>
+            <p className="text-gray-600">Aún no hay compradores.</p>
           )}
         </div>
 
