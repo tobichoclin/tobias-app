@@ -1,3 +1,5 @@
+// src/app/api/auth/mercadolibre/token/route.ts
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { jwtVerify } from 'jose';
@@ -7,13 +9,15 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = await cookies(); // ✅ corregido
     const sessionToken = cookieStore.get('session_token')?.value;
+
     if (!sessionToken) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
     }
 
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    console.log("🔐 JWT_SECRET:", process.env.JWT_SECRET);
     const { payload } = await jwtVerify(sessionToken, secret);
     const userId = payload.userId as string;
 
