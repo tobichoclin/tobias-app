@@ -55,7 +55,7 @@ async function getValidAccessToken(userId: string) {
 // --- API PRINCIPAL PARA OBTENER CLIENTES ---
 export async function GET() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
     if (!sessionToken) return NextResponse.json({ message: 'No autenticado' }, { status: 401 });
@@ -68,7 +68,7 @@ export async function GET() {
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     // 1. Pedir las órdenes a Mercado Libre
-    const ordersResponse = await fetch(`https://api.mercadolibre.com/orders/search?seller=${user?.mercadolibreUserId}`, {
+    const ordersResponse = await fetch(`https://api.mercadolibre.com/orders/search?seller=${user?.mercadolibreId}`, {
       headers: { 'Authorization': `Bearer ${accessToken}` },
     });
 

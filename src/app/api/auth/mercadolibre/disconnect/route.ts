@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 
 export async function POST() {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
     if (!sessionToken) {
@@ -23,7 +23,7 @@ export async function POST() {
     await prisma.user.update({
       where: { id: userId },
       data: {
-        mercadolibreUserId: null,
+        mercadolibreId: null,
         mercadolibreAccessToken: null,
         mercadolibreRefreshToken: null,
         mercadolibreTokenExpiresAt: null,
