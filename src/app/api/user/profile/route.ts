@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 export async function GET() {
   try {
     // Obtener el token de sesión
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
     if (!sessionToken) {
@@ -28,7 +28,7 @@ export async function GET() {
         id: true,
         name: true,
         email: true,
-        mercadolibreUserId: true,
+        mercadolibreId: true,
         mercadolibreAccessToken: true,
         mercadolibreTokenExpiresAt: true,
         createdAt: true,
@@ -41,9 +41,9 @@ export async function GET() {
 
     // Verificar si el token de MercadoLibre está vigente
     const isMLConnected = !!(
-      user.mercadolibreUserId && 
-      user.mercadolibreAccessToken && 
-      user.mercadolibreTokenExpiresAt && 
+      user.mercadolibreId &&
+      user.mercadolibreAccessToken &&
+      user.mercadolibreTokenExpiresAt &&
       user.mercadolibreTokenExpiresAt > new Date()
     );
 
@@ -51,7 +51,7 @@ export async function GET() {
     let mercadolibreProfile = null;
     if (isMLConnected && user.mercadolibreAccessToken) {
       try {
-        const mlResponse = await fetch(`https://api.mercadolibre.com/users/${user.mercadolibreUserId}`, {
+        const mlResponse = await fetch(`https://api.mercadolibre.com/users/${user.mercadolibreId}`, {
           headers: {
             'Authorization': `Bearer ${user.mercadolibreAccessToken}`
           }
@@ -74,7 +74,7 @@ export async function GET() {
       },
       mercadolibre: {
         connected: isMLConnected,
-        userId: user.mercadolibreUserId,
+        userId: user.mercadolibreId,
         expiresAt: user.mercadolibreTokenExpiresAt,
         profile: mercadolibreProfile,
       }

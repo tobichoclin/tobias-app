@@ -33,9 +33,9 @@ export default function LoginPage() {
       // Solo necesitamos redirigir al usuario.
       router.push('/dashboard');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error al iniciar sesión:', error);
-      setError(error.message);
+      setError(error instanceof Error ? error.message : 'Algo salió mal');
     } finally {
       setIsLoading(false);
     }

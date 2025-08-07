@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const codeVerifier = cookieStore.get('pkce_code_verifier')?.value;
   const sessionToken = cookieStore.get('session_token')?.value;
 
@@ -74,9 +74,9 @@ export async function GET(request: Request) {
     const { payload } = await jwtVerify(sessionToken, secret);
     const userId = payload.userId as string;
 
-    // Verificar si este mercadolibreUserId ya está asociado a OTRA cuenta
+    // Verificar si este mercadolibreId ya está asociado a OTRA cuenta
     const existingMLUser = await prisma.user.findUnique({
-      where: { mercadolibreUserId: tokens.user_id.toString() },
+      where: { mercadolibreId: tokens.user_id.toString() },
       select: { id: true, email: true }
     });
 
@@ -86,19 +86,13 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${baseUrl}/dashboard?error=MLAccountAlreadyLinked`);
     }
 
-    // Obtener información del usuario actual
-    const currentUser = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { mercadolibreUserId: true }
-    });
-
     // Actualizar tokens (permitir sobrescribir si es el mismo usuario)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
     await prisma.user.update({
       where: { id: userId },
       data: {
-        mercadolibreUserId: tokens.user_id.toString(),
+        mercadolibreId: tokens.user_id.toString(),
         mercadolibreAccessToken: tokens.access_token,
         mercadolibreRefreshToken: tokens.refresh_token,
         mercadolibreTokenExpiresAt: expiresAt,

@@ -37,9 +37,9 @@ export default function RegisterPage() {
       console.log('Usuario registrado con éxito:', data);
       router.push('/login');
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error en el registro:', error);
-      setError(error.message);
+      setError(error instanceof Error ? error.message : 'Error en el registro');
     } finally {
       setIsLoading(false);
     }
