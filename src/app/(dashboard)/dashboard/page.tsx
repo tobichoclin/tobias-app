@@ -40,11 +40,22 @@ interface UserProfile {
   };
 }
 
+interface Customer {
+  id: string;
+  mercadolibreId: string;
+  nickname: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+}
+
 
 export default function DashboardPage() {
   const router = useRouter();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -66,7 +77,24 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchCustomers = async () => {
+      try {
+        const response = await fetch('/api/customers');
+        if (response.ok) {
+          const data = await response.json();
+          setCustomers(data);
+        } else {
+          console.error('Error cargando clientes');
+        }
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setCustomersLoading(false);
+      }
+    };
+
     fetchUserProfile();
+    fetchCustomers();
 
     // Verificar si hay mensajes de error o éxito en la URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -81,6 +109,7 @@ export default function DashboardPage() {
       alert('✅ ¡Conexión con MercadoLibre exitosa!');
       // Recargar el perfil para mostrar la nueva conexión
       fetchUserProfile();
+      fetchCustomers();
     }
 
     // Limpiar los parámetros de la URL
@@ -251,6 +280,27 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Listado de compradores */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Compradores</h2>
+          {customers.length > 0 ? (
+            <ul className="divide-y divide-gray-200">
+              {customers.map((customer) => (
+                <li key={customer.id} className="py-2">
+                  <span className="font-medium">{customer.nickname}</span>
+                  {customer.email && (
+                    <span className="ml-2 text-sm text-gray-600">{customer.email}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-gray-600">
+              {customersLoading ? 'Cargando...' : 'Aún no hay compradores.'}
+            </p>
+          )}
         </div>
 
         {/* Próximas funcionalidades */}
