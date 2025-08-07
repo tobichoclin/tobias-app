@@ -4,5 +4,5 @@ tunnels:
   tobias-app:
     proto: http
     addr: 3000
-    hostname: 75831a4a3168.ngrok-free.app
+    hostname: 05825242517a.ngrok-free.app
     inspect: true
