@@ -9,7 +9,7 @@ const prisma = new PrismaClient();
 export async function GET() {
   try {
     // Obtener el token de sesión
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
     if (!sessionToken) {

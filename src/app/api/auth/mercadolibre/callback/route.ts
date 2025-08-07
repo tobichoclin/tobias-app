@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const codeVerifier = cookieStore.get('pkce_code_verifier')?.value;
   const sessionToken = cookieStore.get('session_token')?.value;
 
