@@ -34,19 +34,18 @@ export async function GET(request: Request) {
 
   // Validaciones iniciales con error específico
   if (!code) {
-    return NextResponse.redirect(new URL('/dashboard?error=MissingCode', request.url));
+    return NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?error=MissingCode');
   }
-  
+
   if (!sessionToken) {
-    return NextResponse.redirect(new URL('/dashboard?error=MissingSession', request.url));
+    return NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?error=MissingSession');
   }
-  
+
   if (!codeVerifier) {
-    return NextResponse.redirect(new URL('/dashboard?error=MissingVerifier', request.url));
+    return NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?error=MissingVerifier');
   }
 
   try {
-    // ... (el resto del código para obtener y guardar el token se mantiene igual) ...
     const tokenResponse = await fetch('https://api.mercadolibre.com/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
@@ -69,12 +68,10 @@ export async function GET(request: Request) {
     const tokens = await tokenResponse.json();
     console.log('TOKENS DE MERCADO LIBRE RECIBIDOS:', tokens);
 
-    // Verificar el JWT del usuario autenticado
     const secret = new TextEncoder().encode(process.env.JWT_SECRET);
     const { payload } = await jwtVerify(sessionToken, secret);
     const userId = payload.userId as string;
 
-    // Verificar si este mercadolibreId ya está asociado a OTRA cuenta
     const existingMLUser = await prisma.user.findUnique({
       where: { mercadolibreId: tokens.user_id.toString() },
       select: { id: true, email: true }
@@ -82,11 +79,9 @@ export async function GET(request: Request) {
 
     if (existingMLUser && existingMLUser.id !== userId) {
       console.log('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario:', existingMLUser.email);
-      const baseUrl = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI?.replace('/api/auth/mercadolibre/callback', '') || 'http://localhost:3000';
-      return NextResponse.redirect(`${baseUrl}/dashboard?error=MLAccountAlreadyLinked`);
+      return NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?error=MLAccountAlreadyLinked');
     }
 
-    // Actualizar tokens (permitir sobrescribir si es el mismo usuario)
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
     await prisma.user.update({
@@ -101,9 +96,7 @@ export async function GET(request: Request) {
 
     console.log('✅ Tokens de MercadoLibre guardados para el usuario:', userId);
 
-    // Crear respuesta de redirección y limpiar la cookie PKCE
-    const baseUrl = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI?.replace('/api/auth/mercadolibre/callback', '') || 'http://localhost:3000';
-    const response = NextResponse.redirect(`${baseUrl}/dashboard?success=true`);
+    const response = NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?success=true');
     response.cookies.set('pkce_code_verifier', '', { 
       maxAge: 0, 
       path: '/' 
@@ -112,8 +105,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('Error en el callback de Mercado Libre:', error);
-    const baseUrl = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI?.replace('/api/auth/mercadolibre/callback', '') || 'http://localhost:3000';
-    return NextResponse.redirect(`${baseUrl}/dashboard?error=TokenError`);
+    return NextResponse.redirect('https://c4f12364ba4f.ngrok-free.app/dashboard?error=TokenError');
   } finally {
     await prisma.$disconnect();
   }
