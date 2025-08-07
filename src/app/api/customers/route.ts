@@ -114,7 +114,12 @@ export async function GET() {
       where: { userId: userId },
     });
 
-    return NextResponse.json(customers, { status: 200 });
+    const serializedCustomers = customers.map((c) => ({
+      ...c,
+      mercadolibreId: c.mercadolibreId.toString(),
+    }));
+
+    return NextResponse.json(serializedCustomers, { status: 200 });
 
   } catch (error) {
     console.error('Error al obtener clientes:', error);
