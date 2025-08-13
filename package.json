@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "tunnel": "npx localtunnel --port 3000 --subdomain tobiasdev",
-    "dev-tunnel": "concurrently \"npm run dev\" \"npm run tunnel\""
+    "dev-tunnel": "concurrently \"npm run dev\" \"npm run tunnel\"",
+    "test": "node --test"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
