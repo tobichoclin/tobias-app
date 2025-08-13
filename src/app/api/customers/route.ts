@@ -88,7 +88,7 @@ export async function GET() {
       email?: string;
     }
 
-    // Cache para detalles de usuarios y evitar múltiples llamadas
+    // Cache para detalles de compradores y evitar múltiples llamadas
     const buyerDetailsCache = new Map<string, BuyerDetails>();
 
     // 2. Procesar y guardar cada orden y cliente en nuestra BD
@@ -109,14 +109,19 @@ export async function GET() {
       if (!firstName || !lastName || !email) {
         let details = buyerDetailsCache.get(buyer.id);
         if (!details) {
-          const userResponse = await fetch(
-            `https://api.mercadolibre.com/users/${buyer.id}`,
+          const orderDetailsResponse = await fetch(
+            `https://api.mercadolibre.com/orders/${order.id}`,
             {
               headers: { Authorization: `Bearer ${accessToken}` },
             }
           );
-          if (userResponse.ok) {
-            details = (await userResponse.json()) as BuyerDetails;
+          if (orderDetailsResponse.ok) {
+            const orderDetails = await orderDetailsResponse.json();
+            details = {
+              first_name: orderDetails.buyer?.first_name,
+              last_name: orderDetails.buyer?.last_name,
+              email: orderDetails.buyer?.email,
+            } as BuyerDetails;
             buyerDetailsCache.set(buyer.id, details);
           }
         }
@@ -132,16 +137,17 @@ export async function GET() {
       const buyerIdStr = buyer.id.toString();
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
+      const packId = (order.pack_id ?? order.id).toString();
       if (currentStats) {
         currentStats.count += 1;
         if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
-          currentStats.lastOrderId = order.id.toString();
+          currentStats.lastOrderId = packId;
           currentStats.lastOrderDate = orderDate;
         }
       } else {
         buyerStats.set(buyerIdStr, {
           count: 1,
-          lastOrderId: order.id.toString(),
+          lastOrderId: packId,
           lastOrderDate: orderDate,
         });
       }
