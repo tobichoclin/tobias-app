@@ -47,6 +47,8 @@ interface Customer {
   firstName?: string | null;
   lastName?: string | null;
   email?: string | null;
+  purchaseCount: number;
+  lastOrderId?: string | null;
 }
 
 
@@ -56,6 +58,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersLoading, setCustomersLoading] = useState(true);
+  const [minPurchases, setMinPurchases] = useState(0);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -82,10 +85,7 @@ export default function DashboardPage() {
         const response = await fetch('/api/customers');
         if (response.ok) {
           const data: Customer[] = await response.json();
-          const uniqueCustomers = Array.from(
-            new Map(data.map((c) => [c.mercadolibreId, c])).values()
-          );
-          setCustomers(uniqueCustomers);
+          setCustomers(data);
         } else {
           console.error('Error cargando clientes');
         }
@@ -120,6 +120,28 @@ export default function DashboardPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  const handleSendMessage = async (customer: Customer) => {
+    const message = prompt('Escribe tu mensaje:');
+    if (!message) return;
+
+    try {
+      const response = await fetch(`/api/customers/${customer.id}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, orderId: customer.lastOrderId }),
+      });
+
+      if (response.ok) {
+        alert('Mensaje enviado');
+      } else {
+        alert('No se pudo enviar el mensaje');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      alert('No se pudo enviar el mensaje');
+    }
+  };
 
   const handleMercadoLibreDisconnect = async () => {
     if (confirm('¿Estás seguro de que quieres desconectar tu cuenta de MercadoLibre?')) {
@@ -288,6 +310,19 @@ export default function DashboardPage() {
         {/* Listado de compradores */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Compradores</h2>
+          <div className="flex items-center mb-4">
+            <label className="mr-2 text-sm text-gray-700">Filtrar por compras:</label>
+            <select
+              value={minPurchases}
+              onChange={(e) => setMinPurchases(Number(e.target.value))}
+              className="border rounded px-2 py-1 text-sm"
+            >
+              <option value={0}>Todos</option>
+              <option value={1}>Más de 1</option>
+              <option value={5}>Más de 5</option>
+              <option value={10}>Más de 10</option>
+            </select>
+          </div>
           {customersLoading ? (
             <p className="text-gray-600">Cargando...</p>
           ) : customers.length > 0 ? (
@@ -299,21 +334,34 @@ export default function DashboardPage() {
                     <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
                     <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
                     <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
+                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {customers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">
-                        {customer.firstName || customer.lastName
-                          ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
-                          : 'N/A'}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{customer.email ?? 'N/A'}</td>
-                    </tr>
-                  ))}
+                  {customers
+                    .filter((c) => c.purchaseCount > minPurchases)
+                    .map((customer) => (
+                      <tr key={customer.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          {customer.firstName || customer.lastName
+                            ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
+                            : 'N/A'}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.email ?? 'N/A'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <button
+                            onClick={() => handleSendMessage(customer)}
+                            className="text-blue-600 hover:underline"
+                          >
+                            Enviar mensaje
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>

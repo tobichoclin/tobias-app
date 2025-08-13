@@ -76,6 +76,21 @@ export async function GET() {
 
     const { results: orders } = await ordersResponse.json();
 
+    // Mapa para llevar la cuenta de compras y última orden por comprador
+    const buyerStats = new Map<
+      string,
+      { count: number; lastOrderId: string; lastOrderDate: string }
+    >();
+
+    interface BuyerDetails {
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+    }
+
+    // Cache para detalles de usuarios y evitar múltiples llamadas
+    const buyerDetailsCache = new Map<string, BuyerDetails>();
+
     // 2. Procesar y guardar cada orden y cliente en nuestra BD
     for (const order of orders) {
       const buyer = order.buyer;
@@ -86,24 +101,66 @@ export async function GET() {
         continue;
       }
 
+      // Obtener detalles adicionales del comprador si faltan datos
+      let firstName = buyer.first_name || null;
+      let lastName = buyer.last_name || null;
+      let email = buyer.email || null;
+
+      if (!firstName || !lastName || !email) {
+        let details = buyerDetailsCache.get(buyer.id);
+        if (!details) {
+          const userResponse = await fetch(
+            `https://api.mercadolibre.com/users/${buyer.id}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+          if (userResponse.ok) {
+            details = (await userResponse.json()) as BuyerDetails;
+            buyerDetailsCache.set(buyer.id, details);
+          }
+        }
+        firstName = firstName || details?.first_name || null;
+        lastName = lastName || details?.last_name || null;
+        email = email || details?.email || null;
+      }
+
       // Convertir el ID a BigInt para que coincida con el esquema
       const buyerIdBigInt = BigInt(buyer.id);
+
+      // Actualizar estadísticas de compras
+      const buyerIdStr = buyer.id.toString();
+      const currentStats = buyerStats.get(buyerIdStr);
+      const orderDate = order.date_created;
+      if (currentStats) {
+        currentStats.count += 1;
+        if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
+          currentStats.lastOrderId = order.id.toString();
+          currentStats.lastOrderDate = orderDate;
+        }
+      } else {
+        buyerStats.set(buyerIdStr, {
+          count: 1,
+          lastOrderId: order.id.toString(),
+          lastOrderDate: orderDate,
+        });
+      }
 
       // Usamos `upsert` para crear el cliente si no existe, o actualizarlo si ya existe
       await prisma.customer.upsert({
         where: { mercadolibreId: buyerIdBigInt },
-        update: { 
+        update: {
           nickname: buyer.nickname || 'Usuario sin nombre',
-          firstName: buyer.first_name || null,
-          lastName: buyer.last_name || null,
-          email: buyer.email || null,
+          firstName,
+          lastName,
+          email,
         },
         create: {
           mercadolibreId: buyerIdBigInt,
           nickname: buyer.nickname || 'Usuario sin nombre',
-          firstName: buyer.first_name || null,
-          lastName: buyer.last_name || null,
-          email: buyer.email || null,
+          firstName,
+          lastName,
+          email,
           userId: userId,
         },
       });
@@ -114,10 +171,15 @@ export async function GET() {
       where: { userId: userId },
     });
 
-    const serializedCustomers = customers.map((c) => ({
-      ...c,
-      mercadolibreId: c.mercadolibreId.toString(),
-    }));
+    const serializedCustomers = customers.map((c) => {
+      const stats = buyerStats.get(c.mercadolibreId.toString());
+      return {
+        ...c,
+        mercadolibreId: c.mercadolibreId.toString(),
+        purchaseCount: stats?.count || 0,
+        lastOrderId: stats?.lastOrderId || null,
+      };
+    });
 
     return NextResponse.json(serializedCustomers, { status: 200 });
 
