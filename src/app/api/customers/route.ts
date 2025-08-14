@@ -144,15 +144,41 @@ export async function GET() {
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
-      const shippingMethod =
+      let shippingMethod =
         order.shipping?.shipping_mode ??
         order.shipping?.mode ??
         order.shipping?.logistic_type ??
         null;
-      const province =
+      let province =
         order.shipping?.receiver_address?.state?.name ??
         order.shipping?.receiver_address?.state ??
         null;
+      if ((!shippingMethod || !province) && order.shipping?.id) {
+        try {
+          const shippingRes = await fetch(
+            `https://api.mercadolibre.com/shipments/${order.shipping.id}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+          if (shippingRes.ok) {
+            const shippingDetails = await shippingRes.json();
+            shippingMethod =
+              shippingMethod ||
+              shippingDetails.shipping_mode ||
+              shippingDetails.mode ||
+              shippingDetails.logistic_type ||
+              null;
+            province =
+              province ||
+              shippingDetails.receiver_address?.state?.name ||
+              shippingDetails.receiver_address?.state ||
+              null;
+          }
+        } catch (err) {
+          console.error('Error obteniendo envío', order.id, err);
+        }
+      }
       if (currentStats) {
         currentStats.count += 1;
         if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
