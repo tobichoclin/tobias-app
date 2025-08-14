@@ -46,10 +46,10 @@ async function getValidAccessToken(userId: string) {
 
 export async function POST(
   req: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params;
+    const { id } = await params;
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
