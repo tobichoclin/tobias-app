@@ -74,7 +74,7 @@ export async function POST(
     const user = await prisma.user.findUnique({ where: { id: userId } });
 
     const mlResponse = await fetch(
-      `https://api.mercadolibre.com/messages/packs/${orderId}/sellers/${user?.mercadolibreId}`,
+      `https://api.mercadolibre.com/messages/packs/${orderId}/sellers/${user?.mercadolibreId}?tag=post_sale`,
       {
         method: 'POST',
         headers: {
