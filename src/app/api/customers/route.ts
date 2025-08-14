@@ -76,10 +76,16 @@ export async function GET() {
 
     const { results: orders } = await ordersResponse.json();
 
-    // Mapa para llevar la cuenta de compras y última orden por comprador
+    // Mapa para llevar la cuenta de compras, ubicación y último envío por comprador
     const buyerStats = new Map<
       string,
-      { count: number; lastOrderId: string; lastOrderDate: string }
+      {
+        count: number;
+        lastOrderId: string;
+        lastOrderDate: string;
+        lastShippingMethod?: string | null;
+        lastProvince?: string | null;
+      }
     >();
 
     interface BuyerDetails {
@@ -138,17 +144,30 @@ export async function GET() {
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
+      const shippingMethod =
+        order.shipping?.shipping_mode ??
+        order.shipping?.mode ??
+        order.shipping?.logistic_type ??
+        null;
+      const province =
+        order.shipping?.receiver_address?.state?.name ??
+        order.shipping?.receiver_address?.state ??
+        null;
       if (currentStats) {
         currentStats.count += 1;
         if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
           currentStats.lastOrderId = packId;
           currentStats.lastOrderDate = orderDate;
+          currentStats.lastShippingMethod = shippingMethod;
+          currentStats.lastProvince = province;
         }
       } else {
         buyerStats.set(buyerIdStr, {
           count: 1,
           lastOrderId: packId,
           lastOrderDate: orderDate,
+          lastShippingMethod: shippingMethod,
+          lastProvince: province,
         });
       }
 
@@ -184,6 +203,8 @@ export async function GET() {
         mercadolibreId: c.mercadolibreId.toString(),
         purchaseCount: stats?.count || 0,
         lastOrderId: stats?.lastOrderId || null,
+        lastShippingMethod: stats?.lastShippingMethod || null,
+        province: stats?.lastProvince || null,
       };
     });
 
