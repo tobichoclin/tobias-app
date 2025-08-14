@@ -207,18 +207,26 @@ export default function DashboardPage() {
     }
     const message = prompt('Escribe tu mensaje para todos los compradores:');
     if (!message) return;
-    for (const customer of filteredCustomers) {
-      try {
-        await fetch(`/api/customers/${customer.id}/message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message, orderId: customer.lastOrderId }),
-        });
-      } catch (error) {
-        console.error('Error enviando mensaje a', customer.id, error);
+    try {
+      const responses = await Promise.all(
+        filteredCustomers.map((customer) =>
+          fetch(`/api/customers/${customer.id}/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message, orderId: customer.lastOrderId }),
+          })
+        )
+      );
+      const failed = responses.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        alert(`Mensajes enviados con ${failed.length} errores.`);
+      } else {
+        alert('Mensajes enviados');
       }
+    } catch (error) {
+      console.error('Error enviando mensajes:', error);
+      alert('No se pudieron enviar los mensajes');
     }
-    alert('Mensajes enviados');
   };
 
   const handleMercadoLibreDisconnect = async () => {
