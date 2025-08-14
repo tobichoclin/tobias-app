@@ -46,7 +46,6 @@ interface Customer {
   nickname: string;
   firstName?: string | null;
   lastName?: string | null;
-  email?: string | null;
   purchaseCount: number;
   lastOrderId?: string | null;
 }
@@ -329,39 +328,37 @@ export default function DashboardPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Email</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
-                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
-                  </tr>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
+                    </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {customers
                     .filter((c) => c.purchaseCount > minPurchases)
                     .map((customer) => (
-                      <tr key={customer.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">
-                          {customer.firstName || customer.lastName
-                            ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
-                            : 'N/A'}
-                        </td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{customer.email ?? 'N/A'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
-                        <td className="px-4 py-2 text-sm">
-                          <button
-                            onClick={() => handleSendMessage(customer)}
-                            className="text-blue-600 hover:underline"
-                          >
-                            Enviar mensaje
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                        <tr key={customer.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">
+                            {customer.firstName || customer.lastName
+                              ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
+                              : 'N/A'}
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
+                          <td className="px-4 py-2 text-sm">
+                            <button
+                              onClick={() => handleSendMessage(customer)}
+                              className="text-blue-600 hover:underline"
+                            >
+                              Enviar mensaje
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
                 </tbody>
               </table>
             </div>

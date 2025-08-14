@@ -44,8 +44,12 @@ async function getValidAccessToken(userId: string) {
   return user.mercadolibreAccessToken;
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await context.params;
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
 
@@ -61,7 +65,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ message: 'Datos incompletos' }, { status: 400 });
     }
 
-    const customer = await prisma.customer.findFirst({ where: { id: params.id, userId } });
+    const customer = await prisma.customer.findFirst({ where: { id, userId } });
     if (!customer) {
       return NextResponse.json({ message: 'Cliente no encontrado' }, { status: 404 });
     }
