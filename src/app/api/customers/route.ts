@@ -107,22 +107,34 @@ export async function GET() {
         continue;
       }
 
-      // Obtener detalles adicionales del comprador si faltan datos
+      // Obtener datos del comprador y del envío
       let firstName = buyer.first_name || null;
       let lastName = buyer.last_name || null;
       let email = buyer.email || null;
+      let shippingMethod =
+        order.shipping?.shipping_mode ??
+        order.shipping?.mode ??
+        order.shipping?.logistic_type ??
+        null;
+      let province =
+        order.shipping?.receiver_address?.state?.name ??
+        order.shipping?.receiver_address?.state ??
+        null;
 
-      if (!firstName || !lastName || !email) {
-        let details = buyerDetailsCache.get(buyer.id);
-        if (!details) {
-          const orderDetailsResponse = await fetch(
-            `https://api.mercadolibre.com/orders/${order.id}`,
-            {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            }
-          );
-          if (orderDetailsResponse.ok) {
-            const orderDetails = await orderDetailsResponse.json();
+      // Si falta información del comprador o del envío, pedimos los detalles de la orden
+      if (!firstName || !lastName || !email || !shippingMethod || !province) {
+        const orderDetailsResponse = await fetch(
+          `https://api.mercadolibre.com/orders/${order.id}`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }
+        );
+        if (orderDetailsResponse.ok) {
+          const orderDetails = await orderDetailsResponse.json();
+
+          // Guardar detalles del comprador en cache para evitar múltiples llamadas
+          let details = buyerDetailsCache.get(buyer.id);
+          if (!details) {
             details = {
               first_name: orderDetails.buyer?.first_name,
               last_name: orderDetails.buyer?.last_name,
@@ -130,10 +142,23 @@ export async function GET() {
             } as BuyerDetails;
             buyerDetailsCache.set(buyer.id, details);
           }
+
+          firstName = firstName || details.first_name || null;
+          lastName = lastName || details.last_name || null;
+          email = email || details.email || null;
+
+          shippingMethod =
+            shippingMethod ||
+            orderDetails.shipping?.shipping_mode ||
+            orderDetails.shipping?.mode ||
+            orderDetails.shipping?.logistic_type ||
+            null;
+          province =
+            province ||
+            orderDetails.shipping?.receiver_address?.state?.name ||
+            orderDetails.shipping?.receiver_address?.state ||
+            null;
         }
-        firstName = firstName || details?.first_name || null;
-        lastName = lastName || details?.last_name || null;
-        email = email || details?.email || null;
       }
 
       // Convertir el ID a BigInt para que coincida con el esquema
@@ -144,15 +169,6 @@ export async function GET() {
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
-      let shippingMethod =
-        order.shipping?.shipping_mode ??
-        order.shipping?.mode ??
-        order.shipping?.logistic_type ??
-        null;
-      let province =
-        order.shipping?.receiver_address?.state?.name ??
-        order.shipping?.receiver_address?.state ??
-        null;
       if ((!shippingMethod || !province) && order.shipping?.id) {
         try {
           const shippingRes = await fetch(
