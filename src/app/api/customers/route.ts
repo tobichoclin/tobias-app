@@ -94,6 +94,23 @@ export async function GET() {
       email?: string;
     }
 
+    interface OrderDetails {
+      buyer?: {
+        first_name?: string;
+        last_name?: string;
+        email?: string;
+      };
+      shipping?: {
+        id?: string | number;
+        shipping_mode?: string;
+        mode?: string;
+        logistic_type?: string;
+        receiver_address?: {
+          state?: { name?: string } | string;
+        };
+      };
+    }
+
     // Cache para detalles de compradores y evitar múltiples llamadas
     const buyerDetailsCache = new Map<string, BuyerDetails>();
 
@@ -120,6 +137,7 @@ export async function GET() {
         order.shipping?.receiver_address?.state?.name ??
         order.shipping?.receiver_address?.state ??
         null;
+      let orderDetails: OrderDetails | null = null;
 
       // Si falta información del comprador o del envío, pedimos los detalles de la orden
       if (!firstName || !lastName || !email || !shippingMethod || !province) {
@@ -130,7 +148,7 @@ export async function GET() {
           }
         );
         if (orderDetailsResponse.ok) {
-          const orderDetails = await orderDetailsResponse.json();
+          orderDetails = (await orderDetailsResponse.json()) as OrderDetails;
 
           // Guardar detalles del comprador en cache para evitar múltiples llamadas
           let details = buyerDetailsCache.get(buyer.id);
@@ -169,10 +187,11 @@ export async function GET() {
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
-      if ((!shippingMethod || !province) && order.shipping?.id) {
+      const shippingId = order.shipping?.id || orderDetails?.shipping?.id;
+      if ((!shippingMethod || !province) && shippingId) {
         try {
           const shippingRes = await fetch(
-            `https://api.mercadolibre.com/shipments/${order.shipping.id}`,
+            `https://api.mercadolibre.com/shipments/${shippingId}`,
             {
               headers: { Authorization: `Bearer ${accessToken}` },
             }
