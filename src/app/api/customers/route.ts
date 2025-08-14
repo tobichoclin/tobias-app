@@ -171,7 +171,6 @@ export async function GET() {
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
-
       if ((!shippingMethod || !province) && shipping?.id) {
         try {
           const shippingRes = await fetch(

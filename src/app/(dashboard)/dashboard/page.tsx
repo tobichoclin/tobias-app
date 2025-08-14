@@ -75,7 +75,6 @@ export default function DashboardPage() {
   const [shippingFilter, setShippingFilter] = useState('');
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
-
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
     customers.forEach((c) => {
