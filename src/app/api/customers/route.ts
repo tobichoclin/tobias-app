@@ -4,6 +4,33 @@ import { PrismaClient } from '@prisma/client';
 import { jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
+const provinceCodes: Record<string, string> = {
+  'AR-C': 'Ciudad Autónoma de Buenos Aires',
+  'AR-B': 'Buenos Aires',
+  'AR-K': 'Catamarca',
+  'AR-H': 'Chaco',
+  'AR-U': 'Chubut',
+  'AR-X': 'Córdoba',
+  'AR-W': 'Corrientes',
+  'AR-E': 'Entre Ríos',
+  'AR-P': 'Formosa',
+  'AR-Y': 'Jujuy',
+  'AR-L': 'La Pampa',
+  'AR-F': 'La Rioja',
+  'AR-M': 'Mendoza',
+  'AR-N': 'Misiones',
+  'AR-Q': 'Neuquén',
+  'AR-R': 'Río Negro',
+  'AR-A': 'Salta',
+  'AR-J': 'San Juan',
+  'AR-D': 'San Luis',
+  'AR-Z': 'Santa Cruz',
+  'AR-S': 'Santa Fe',
+  'AR-G': 'Santiago del Estero',
+  'AR-V': 'Tierra del Fuego',
+  'AR-T': 'Tucumán',
+};
+
 // Crear una nueva instancia del cliente Prisma
 const prisma = new PrismaClient();
 
@@ -106,6 +133,7 @@ export async function GET() {
         shipping_mode?: string;
         mode?: string;
         logistic_type?: string;
+        shipping_type?: string;
         receiver_address?: {
           state?: { name?: string } | string;
         };
@@ -155,15 +183,14 @@ export async function GET() {
           // Guardar detalles del comprador en cache para evitar múltiples llamadas
           let details = buyerDetailsCache.get(buyer.id);
           if (!details) {
+            const stateField = orderDetails.shipping?.receiver_address?.state;
+            const stateRaw =
+              typeof stateField === 'string' ? stateField : stateField?.name;
             details = {
               first_name: orderDetails.buyer?.first_name,
               last_name: orderDetails.buyer?.last_name,
               email: orderDetails.buyer?.email,
-              state:
-                orderDetails.shipping?.receiver_address?.state?.name ||
-                (typeof orderDetails.shipping?.receiver_address?.state === 'string'
-                  ? (orderDetails.shipping?.receiver_address?.state as string)
-                  : undefined),
+              state: stateRaw ? provinceCodes[stateRaw] || stateRaw : undefined,
             } as BuyerDetails;
             buyerDetailsCache.set(buyer.id, details);
           }
@@ -179,12 +206,10 @@ export async function GET() {
             orderDetails.shipping?.logistic_type ||
             orderDetails.shipping?.shipping_type ||
             null;
-          province =
-            province ||
-            orderDetails.shipping?.receiver_address?.state?.name ||
-            orderDetails.shipping?.receiver_address?.state ||
-            details.state ||
-            null;
+          const provinceField = orderDetails.shipping?.receiver_address?.state;
+          const provinceRaw =
+            typeof provinceField === 'string' ? provinceField : provinceField?.name;
+          province = province || provinceRaw || details.state || null;
         }
       }
 
@@ -241,32 +266,37 @@ export async function GET() {
               const stateName =
                 buyerInfo.address?.state?.name || buyerInfo.address?.state || null;
               if (stateName) {
-                province = stateName;
+                const mappedState = provinceCodes[stateName] || stateName;
+                province = mappedState;
                 details = details || {};
-                details.state = stateName;
+                details.state = mappedState;
                 buyerDetailsCache.set(buyer.id, details);
               }
             }
           } catch (err) {
             console.error('Error obteniendo comprador', buyer.id, err);
           }
-        }
       }
+    }
+      if (province) {
+        province = provinceCodes[province] || province;
+      }
+
       if (currentStats) {
         currentStats.count += 1;
         if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
           currentStats.lastOrderId = packId;
           currentStats.lastOrderDate = orderDate;
-          currentStats.lastShippingMethod = shippingMethod;
-          currentStats.lastProvince = province;
+          if (shippingMethod) currentStats.lastShippingMethod = shippingMethod;
+          if (province) currentStats.lastProvince = province;
         }
       } else {
         buyerStats.set(buyerIdStr, {
           count: 1,
           lastOrderId: packId,
           lastOrderDate: orderDate,
-          lastShippingMethod: shippingMethod,
-          lastProvince: province,
+          lastShippingMethod: shippingMethod || null,
+          lastProvince: province || null,
         });
       }
 
