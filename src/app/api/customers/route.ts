@@ -76,10 +76,16 @@ export async function GET() {
 
     const { results: orders } = await ordersResponse.json();
 
-    // Mapa para llevar la cuenta de compras y última orden por comprador
+    // Mapa para llevar la cuenta de compras, ubicación y último envío por comprador
     const buyerStats = new Map<
       string,
-      { count: number; lastOrderId: string; lastOrderDate: string }
+      {
+        count: number;
+        lastOrderId: string;
+        lastOrderDate: string;
+        lastShippingMethod?: string | null;
+        lastProvince?: string | null;
+      }
     >();
 
     interface BuyerDetails {
@@ -101,14 +107,31 @@ export async function GET() {
         continue;
       }
 
-      // Obtener detalles adicionales del comprador si faltan datos
       let firstName = buyer.first_name || null;
       let lastName = buyer.last_name || null;
       let email = buyer.email || null;
 
-      if (!firstName || !lastName || !email) {
+      let shipping = order.shipping;
+      let shippingMethod =
+        shipping?.shipping_mode ??
+        shipping?.mode ??
+        shipping?.logistic_type ??
+        null;
+      let province =
+        shipping?.receiver_address?.state?.name ??
+        shipping?.receiver_address?.state ??
+        null;
+
+      if (
+        !firstName ||
+        !lastName ||
+        !email ||
+        !shipping ||
+        !shippingMethod ||
+        !province
+      ) {
         let details = buyerDetailsCache.get(buyer.id);
-        if (!details) {
+        if (!details || !shipping || !shippingMethod || !province) {
           const orderDetailsResponse = await fetch(
             `https://api.mercadolibre.com/orders/${order.id}`,
             {
@@ -122,33 +145,74 @@ export async function GET() {
               last_name: orderDetails.buyer?.last_name,
               email: orderDetails.buyer?.email,
             } as BuyerDetails;
+            shipping = orderDetails.shipping;
             buyerDetailsCache.set(buyer.id, details);
           }
         }
         firstName = firstName || details?.first_name || null;
         lastName = lastName || details?.last_name || null;
         email = email || details?.email || null;
+        shippingMethod =
+          shippingMethod ||
+          shipping?.shipping_mode ||
+          shipping?.mode ||
+          shipping?.logistic_type ||
+          null;
+        province =
+          province ||
+          shipping?.receiver_address?.state?.name ||
+          shipping?.receiver_address?.state ||
+          null;
       }
 
-      // Convertir el ID a BigInt para que coincida con el esquema
       const buyerIdBigInt = BigInt(buyer.id);
 
-      // Actualizar estadísticas de compras
       const buyerIdStr = buyer.id.toString();
       const currentStats = buyerStats.get(buyerIdStr);
       const orderDate = order.date_created;
       const packId = (order.pack_id ?? order.id).toString();
+
+      if ((!shippingMethod || !province) && shipping?.id) {
+        try {
+          const shippingRes = await fetch(
+            `https://api.mercadolibre.com/shipments/${shipping.id}`,
+            {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            }
+          );
+          if (shippingRes.ok) {
+            const shippingDetails = await shippingRes.json();
+            shippingMethod =
+              shippingMethod ||
+              shippingDetails.shipping_mode ||
+              shippingDetails.mode ||
+              shippingDetails.logistic_type ||
+              null;
+            province =
+              province ||
+              shippingDetails.receiver_address?.state?.name ||
+              shippingDetails.receiver_address?.state ||
+              null;
+          }
+        } catch (err) {
+          console.error('Error obteniendo envío', order.id, err);
+        }
+      }
       if (currentStats) {
         currentStats.count += 1;
         if (new Date(orderDate) > new Date(currentStats.lastOrderDate)) {
           currentStats.lastOrderId = packId;
           currentStats.lastOrderDate = orderDate;
+          currentStats.lastShippingMethod = shippingMethod;
+          currentStats.lastProvince = province;
         }
       } else {
         buyerStats.set(buyerIdStr, {
           count: 1,
           lastOrderId: packId,
           lastOrderDate: orderDate,
+          lastShippingMethod: shippingMethod,
+          lastProvince: province,
         });
       }
 
@@ -184,6 +248,8 @@ export async function GET() {
         mercadolibreId: c.mercadolibreId.toString(),
         purchaseCount: stats?.count || 0,
         lastOrderId: stats?.lastOrderId || null,
+        lastShippingMethod: stats?.lastShippingMethod || null,
+        province: stats?.lastProvince || null,
       };
     });
 

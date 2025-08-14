@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 // --- Funciones para PKCE ---
 function base64URLEncode(str: Buffer) {
@@ -48,8 +48,21 @@ interface Customer {
   lastName?: string | null;
   purchaseCount: number;
   lastOrderId?: string | null;
+  lastShippingMethod?: string | null;
+  province?: string | null;
 }
 
+const shippingOptions = [
+  { value: 'me2', label: 'Mercado Envíos' },
+  { value: 'me1', label: 'Flex' },
+  { value: 'custom', label: 'Arreglo con el vendedor' },
+  { value: 'correo', label: 'Correo' },
+];
+
+const getShippingLabel = (code?: string | null) => {
+  const option = shippingOptions.find((o) => o.value === code);
+  return option ? option.label : code || 'N/A';
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -57,9 +70,35 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersLoading, setCustomersLoading] = useState(true);
-  const [minPurchases, setMinPurchases] = useState(0);
+  const [purchaseFilter, setPurchaseFilter] = useState('');
+  const [provinceFilter, setProvinceFilter] = useState('');
+  const [shippingFilter, setShippingFilter] = useState('');
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
+
+  const provinceOptions = useMemo(() => {
+    const set = new Set<string>();
+    customers.forEach((c) => {
+      if (c.province) set.add(c.province);
+    });
+    return Array.from(set).sort();
+  }, [customers]);
+
+  const filteredCustomers = useMemo(() => {
+    return customers.filter((c) => {
+      let match = true;
+      if (purchaseFilter === '1') match = match && c.purchaseCount === 1;
+      else if (purchaseFilter === '1-5')
+        match = match && c.purchaseCount > 1 && c.purchaseCount <= 5;
+      else if (purchaseFilter === '5-10')
+        match = match && c.purchaseCount > 5 && c.purchaseCount <= 10;
+      else if (purchaseFilter === '10+')
+        match = match && c.purchaseCount > 10;
+      if (provinceFilter) match = match && c.province === provinceFilter;
+      if (shippingFilter) match = match && c.lastShippingMethod === shippingFilter;
+      return match;
+    });
+  }, [customers, purchaseFilter, provinceFilter, shippingFilter]);
 
   // Cargar perfil del usuario al montar el componente
   useEffect(() => {
@@ -140,6 +179,27 @@ export default function DashboardPage() {
       console.error('Error:', error);
       alert('No se pudo enviar el mensaje');
     }
+  };
+
+  const handleSendMessageAll = async () => {
+    if (filteredCustomers.length === 0) {
+      alert('No hay compradores para enviar mensajes.');
+      return;
+    }
+    const message = prompt('Escribe tu mensaje para todos los compradores:');
+    if (!message) return;
+    for (const customer of filteredCustomers) {
+      try {
+        await fetch(`/api/customers/${customer.id}/message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message, orderId: customer.lastOrderId }),
+        });
+      } catch (error) {
+        console.error('Error enviando mensaje a', customer.id, error);
+      }
+    }
+    alert('Mensajes enviados');
   };
 
   const handleMercadoLibreDisconnect = async () => {
@@ -309,22 +369,61 @@ export default function DashboardPage() {
         {/* Listado de compradores */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Compradores</h2>
-          <div className="flex items-center mb-4">
-            <label className="mr-2 text-sm text-gray-700">Filtrar por compras:</label>
-            <select
-              value={minPurchases}
-              onChange={(e) => setMinPurchases(Number(e.target.value))}
-              className="border rounded px-2 py-1 text-sm"
+          <div className="flex flex-wrap items-center mb-4 gap-4">
+            <div className="flex items-center">
+              <label className="mr-2 text-sm text-gray-700">Compras:</label>
+              <select
+                value={purchaseFilter}
+                onChange={(e) => setPurchaseFilter(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="">Todas</option>
+                <option value="1">1 compra</option>
+                <option value="1-5">Entre 1 y 5</option>
+                <option value="5-10">Entre 5 y 10</option>
+                <option value="10+">Más de 10</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <label className="mr-2 text-sm text-gray-700">Ubicación:</label>
+              <select
+                value={provinceFilter}
+                onChange={(e) => setProvinceFilter(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="">Todas</option>
+                {provinceOptions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center">
+              <label className="mr-2 text-sm text-gray-700">Envío:</label>
+              <select
+                value={shippingFilter}
+                onChange={(e) => setShippingFilter(e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+              >
+                <option value="">Todos</option>
+                {shippingOptions.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={handleSendMessageAll}
+              className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
             >
-              <option value={0}>Todos</option>
-              <option value={1}>Más de 1</option>
-              <option value={5}>Más de 5</option>
-              <option value={10}>Más de 10</option>
-            </select>
+              Enviar mensaje a todos
+            </button>
           </div>
           {customersLoading ? (
             <p className="text-gray-600">Cargando...</p>
-          ) : customers.length > 0 ? (
+          ) : filteredCustomers.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -332,14 +431,14 @@ export default function DashboardPage() {
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Provincia</th>
+                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Envío</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {customers
-                    .filter((c) => c.purchaseCount > minPurchases)
-                    .map((customer) => (
+                  {filteredCustomers.map((customer) => (
                         <tr key={customer.id} className="hover:bg-gray-50">
                           <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
                           <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
@@ -348,6 +447,8 @@ export default function DashboardPage() {
                               ? `${customer.firstName ?? ''} ${customer.lastName ?? ''}`.trim()
                               : 'N/A'}
                           </td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{customer.province || 'N/A'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{getShippingLabel(customer.lastShippingMethod)}</td>
                           <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
                           <td className="px-4 py-2 text-sm">
                             <button
