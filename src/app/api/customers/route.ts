@@ -92,6 +92,7 @@ export async function GET() {
       first_name?: string;
       last_name?: string;
       email?: string;
+      state?: string;
     }
 
     interface OrderDetails {
@@ -132,6 +133,7 @@ export async function GET() {
         order.shipping?.shipping_mode ??
         order.shipping?.mode ??
         order.shipping?.logistic_type ??
+        order.shipping?.shipping_type ??
         null;
       let province =
         order.shipping?.receiver_address?.state?.name ??
@@ -157,6 +159,11 @@ export async function GET() {
               first_name: orderDetails.buyer?.first_name,
               last_name: orderDetails.buyer?.last_name,
               email: orderDetails.buyer?.email,
+              state:
+                orderDetails.shipping?.receiver_address?.state?.name ||
+                (typeof orderDetails.shipping?.receiver_address?.state === 'string'
+                  ? (orderDetails.shipping?.receiver_address?.state as string)
+                  : undefined),
             } as BuyerDetails;
             buyerDetailsCache.set(buyer.id, details);
           }
@@ -170,11 +177,13 @@ export async function GET() {
             orderDetails.shipping?.shipping_mode ||
             orderDetails.shipping?.mode ||
             orderDetails.shipping?.logistic_type ||
+            orderDetails.shipping?.shipping_type ||
             null;
           province =
             province ||
             orderDetails.shipping?.receiver_address?.state?.name ||
             orderDetails.shipping?.receiver_address?.state ||
+            details.state ||
             null;
         }
       }
@@ -203,6 +212,7 @@ export async function GET() {
               shippingDetails.shipping_mode ||
               shippingDetails.mode ||
               shippingDetails.logistic_type ||
+              shippingDetails.shipping_type ||
               null;
             province =
               province ||
@@ -212,6 +222,34 @@ export async function GET() {
           }
         } catch (err) {
           console.error('Error obteniendo envío', order.id, err);
+        }
+      }
+
+      // Si aún no tenemos provincia, intentamos obtenerla del perfil del comprador
+      if (!province) {
+        let details = buyerDetailsCache.get(buyer.id);
+        if (details?.state) {
+          province = details.state;
+        } else {
+          try {
+            const buyerRes = await fetch(
+              `https://api.mercadolibre.com/users/${buyer.id}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            );
+            if (buyerRes.ok) {
+              const buyerInfo = await buyerRes.json();
+              const stateName =
+                buyerInfo.address?.state?.name || buyerInfo.address?.state || null;
+              if (stateName) {
+                province = stateName;
+                details = details || {};
+                details.state = stateName;
+                buyerDetailsCache.set(buyer.id, details);
+              }
+            }
+          } catch (err) {
+            console.error('Error obteniendo comprador', buyer.id, err);
+          }
         }
       }
       if (currentStats) {
