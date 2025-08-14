@@ -34,15 +34,15 @@ export async function GET(request: Request) {
 
   // Validaciones iniciales con error específico
   if (!code) {
-    return NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?error=MissingCode');
+    return NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?error=MissingCode');
   }
 
   if (!sessionToken) {
-    return NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?error=MissingSession');
+    return NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?error=MissingSession');
   }
 
   if (!codeVerifier) {
-    return NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?error=MissingVerifier');
+    return NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?error=MissingVerifier');
   }
 
   try {
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
 
     if (existingMLUser && existingMLUser.id !== userId) {
       console.log('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario:', existingMLUser.email);
-      return NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?error=MLAccountAlreadyLinked');
+      return NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?error=MLAccountAlreadyLinked');
     }
 
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 
     console.log('✅ Tokens de MercadoLibre guardados para el usuario:', userId);
 
-    const response = NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?success=true');
+    const response = NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?success=true');
     response.cookies.set('pkce_code_verifier', '', { 
       maxAge: 0, 
       path: '/' 
@@ -105,7 +105,7 @@ export async function GET(request: Request) {
 
   } catch (error) {
     console.error('Error en el callback de Mercado Libre:', error);
-    return NextResponse.redirect('https://60813f9d3776.ngrok-free.app/dashboard?error=TokenError');
+    return NextResponse.redirect('https://2e1d462c69f5.ngrok-free.app/dashboard?error=TokenError');
   } finally {
     await prisma.$disconnect();
   }
