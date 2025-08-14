@@ -52,32 +52,6 @@ interface Customer {
   province?: string | null;
 }
 
-const provinces = [
-  'Buenos Aires',
-  'Ciudad Autónoma de Buenos Aires',
-  'Catamarca',
-  'Chaco',
-  'Chubut',
-  'Córdoba',
-  'Corrientes',
-  'Entre Ríos',
-  'Formosa',
-  'Jujuy',
-  'La Pampa',
-  'La Rioja',
-  'Mendoza',
-  'Misiones',
-  'Neuquén',
-  'Río Negro',
-  'Salta',
-  'San Juan',
-  'San Luis',
-  'Santa Cruz',
-  'Santa Fe',
-  'Santiago del Estero',
-  'Tierra del Fuego',
-  'Tucumán',
-];
 
 const shippingOptions = [
   { value: 'me2', label: 'Mercado Envíos' },
@@ -100,6 +74,7 @@ export default function DashboardPage() {
   const [purchaseFilter, setPurchaseFilter] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('');
   const [shippingFilter, setShippingFilter] = useState('');
+  const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -143,6 +118,14 @@ export default function DashboardPage() {
         if (response.ok) {
           const data: Customer[] = await response.json();
           setCustomers(data);
+          const provs = Array.from(
+            new Set(
+              data
+                .map((c) => c.province)
+                .filter((p): p is string => Boolean(p))
+            )
+          ).sort();
+          setAvailableProvinces(provs);
         } else {
           console.error('Error cargando clientes');
         }
@@ -419,7 +402,7 @@ export default function DashboardPage() {
                 className="border rounded px-2 py-1 text-sm"
               >
                 <option value="">Todas</option>
-                {provinces.map((p) => (
+                {availableProvinces.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
