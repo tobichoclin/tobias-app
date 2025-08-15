@@ -1,8 +1,0 @@
-version: 2
-authtoken: YOUR_NGROK_TOKEN_HERE
-tunnels:
-  tobias-app:
-    proto: http
-    addr: 3000
-    hostname: 05825242517a.ngrok-free.app
-    inspect: true
