@@ -52,18 +52,13 @@ interface Customer {
   province?: string | null;
 }
 
-
-const shippingOptions = [
-  { value: 'me2', label: 'Mercado Envíos' },
-  { value: 'me1', label: 'Flex' },
-  { value: 'custom', label: 'Arreglo con el vendedor' },
-  { value: 'correo', label: 'Correo' },
-];
-
-const getShippingLabel = (code?: string | null) => {
-  const option = shippingOptions.find((o) => o.value === code);
-  return option ? option.label : code || 'N/A';
-};
+interface MLProduct {
+  id: string;
+  title: string;
+  price: number;
+  thumbnail: string;
+  available_quantity: number;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -73,8 +68,9 @@ export default function DashboardPage() {
   const [customersLoading, setCustomersLoading] = useState(true);
   const [purchaseFilter, setPurchaseFilter] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('');
-  const [shippingFilter, setShippingFilter] = useState('');
   const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
+  const [products, setProducts] = useState<MLProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -89,10 +85,9 @@ export default function DashboardPage() {
       else if (purchaseFilter === '10+')
         match = match && c.purchaseCount > 10;
       if (provinceFilter) match = match && c.province === provinceFilter;
-      if (shippingFilter) match = match && c.lastShippingMethod === shippingFilter;
       return match;
     });
-  }, [customers, purchaseFilter, provinceFilter, shippingFilter]);
+  }, [customers, purchaseFilter, provinceFilter]);
 
   // Cargar perfil del usuario al montar el componente
   useEffect(() => {
@@ -160,6 +155,59 @@ export default function DashboardPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const tokenRes = await fetch('/api/auth/mercadolibre/token');
+        if (!tokenRes.ok) throw new Error('Token no disponible');
+        const { accessToken } = await tokenRes.json();
+        const itemsRes = await fetch(`https://api.mercadolibre.com/users/${userProfile?.mercadolibre.userId}/items/search?status=active`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!itemsRes.ok) throw new Error('Error al obtener items');
+        const itemsData = await itemsRes.json();
+        const ids: string[] = itemsData?.results ?? [];
+        if (ids.length === 0) {
+          setProducts([]);
+          return;
+        }
+        const detailsRes = await fetch(`https://api.mercadolibre.com/items?ids=${ids.join(',')}`);
+        if (!detailsRes.ok) throw new Error('Error al obtener detalles');
+        const detailsData = await detailsRes.json();
+        const mapped: MLProduct[] = detailsData.map(
+          (
+            d: {
+              body: {
+                id: string;
+                title: string;
+                price: number;
+                thumbnail: string;
+                available_quantity: number;
+              };
+            }
+          ) => ({
+            id: d.body.id,
+            title: d.body.title,
+            price: d.body.price,
+            thumbnail: d.body.thumbnail,
+            available_quantity: d.body.available_quantity,
+          })
+        );
+        setProducts(mapped);
+      } catch (error) {
+        console.error('Error al obtener productos:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    if (userProfile?.mercadolibre.connected) {
+      fetchProducts();
+    } else {
+      setProductsLoading(false);
+    }
+  }, [userProfile]);
 
   const handleSendMessage = async (customer: Customer) => {
     const message = prompt('Escribe tu mensaje:');
@@ -409,21 +457,6 @@ export default function DashboardPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center">
-              <label className="mr-2 text-sm text-gray-700">Envío:</label>
-              <select
-                value={shippingFilter}
-                onChange={(e) => setShippingFilter(e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
-              >
-                <option value="">Todos</option>
-                {shippingOptions.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
             <button
               onClick={handleSendMessageAll}
               className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
@@ -442,7 +475,6 @@ export default function DashboardPage() {
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Provincia</th>
-                      <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Envío</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
                       <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
                     </tr>
@@ -458,7 +490,6 @@ export default function DashboardPage() {
                               : 'N/A'}
                           </td>
                           <td className="px-4 py-2 text-sm text-gray-900">{customer.province || 'N/A'}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{getShippingLabel(customer.lastShippingMethod)}</td>
                           <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
                           <td className="px-4 py-2 text-sm">
                             <button
@@ -478,14 +509,49 @@ export default function DashboardPage() {
           )}
         </div>
 
+        {/* Productos activos */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos</h2>
+          {productsLoading ? (
+            <p className="text-gray-600">Cargando...</p>
+          ) : products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {products.map((product) => (
+                <a
+                  key={product.id}
+                  href={`https://www.mercadolibre.com.ar/publicaciones/${product.id}/modificar`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border rounded-lg overflow-hidden shadow hover:shadow-lg transition block"
+                >
+                  <img
+                    src={product.thumbnail}
+                    alt={product.title}
+                    className="w-full h-40 object-cover"
+                  />
+                  <div className="p-4">
+                    <h3 className="text-sm font-medium text-gray-900 truncate">
+                      {product.title}
+                    </h3>
+                    <p className="mt-2 text-lg font-semibold text-gray-900">
+                      ${product.price}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Stock: {product.available_quantity}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-600">No tienes productos activos.</p>
+          )}
+        </div>
+
         {/* Próximas funcionalidades */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Próximamente</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h3 className="font-medium text-gray-900">Productos</h3>
-              <p className="text-sm text-gray-600 mt-1">Gestiona tu inventario</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 border border-gray-200 rounded-lg">
               <h3 className="font-medium text-gray-900">Órdenes</h3>
               <p className="text-sm text-gray-600 mt-1">Rastrea tus ventas</p>
