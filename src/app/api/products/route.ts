@@ -55,7 +55,10 @@ export async function GET() {
     }
 
     const detailsRes = await fetch(
-      `https://api.mercadolibre.com/items?ids=${ids.join(',')}`
+      `https://api.mercadolibre.com/items?ids=${ids.join(',')}`,
+      {
+        headers: { Authorization: `Bearer ${user.mercadolibreAccessToken}` },
+      }
     );
 
     if (!detailsRes.ok) {
