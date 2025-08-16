@@ -159,42 +159,10 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const tokenRes = await fetch('/api/auth/mercadolibre/token');
-        if (!tokenRes.ok) throw new Error('Token no disponible');
-        const { accessToken } = await tokenRes.json();
-        const itemsRes = await fetch(`https://api.mercadolibre.com/users/${userProfile?.mercadolibre.userId}/items/search?status=active`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!itemsRes.ok) throw new Error('Error al obtener items');
-        const itemsData = await itemsRes.json();
-        const ids: string[] = itemsData?.results ?? [];
-        if (ids.length === 0) {
-          setProducts([]);
-          return;
-        }
-        const detailsRes = await fetch(`https://api.mercadolibre.com/items?ids=${ids.join(',')}`);
-        if (!detailsRes.ok) throw new Error('Error al obtener detalles');
-        const detailsData = await detailsRes.json();
-        const mapped: MLProduct[] = detailsData.map(
-          (
-            d: {
-              body: {
-                id: string;
-                title: string;
-                price: number;
-                thumbnail: string;
-                available_quantity: number;
-              };
-            }
-          ) => ({
-            id: d.body.id,
-            title: d.body.title,
-            price: d.body.price,
-            thumbnail: d.body.thumbnail,
-            available_quantity: d.body.available_quantity,
-          })
-        );
-        setProducts(mapped);
+        const response = await fetch('/api/products');
+        if (!response.ok) throw new Error('Error al obtener productos');
+        const data: MLProduct[] = await response.json();
+        setProducts(data);
       } catch (error) {
         console.error('Error al obtener productos:', error);
       } finally {
