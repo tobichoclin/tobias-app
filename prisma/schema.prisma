@@ -40,6 +40,9 @@ model Product {
   userId    String
   orders    Order[]
   user      User     @relation(fields: [userId], references: [id])
+  promotionId       String?   @unique
+  promotionExpiresAt DateTime?
+  promotionLink     String?
 }
 
 model Order {

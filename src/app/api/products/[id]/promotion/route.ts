@@ -62,9 +62,12 @@ export async function POST(
     const { payload } = await jwtVerify(sessionToken, secret);
     const userId = payload.userId as string;
 
-    const { discount } = await request.json();
+    const { discount, expiresAt } = await request.json();
     if (!discount || typeof discount !== 'number') {
       return NextResponse.json({ message: 'Descuento inválido' }, { status: 400 });
+    }
+    if (!expiresAt || isNaN(Date.parse(expiresAt))) {
+      return NextResponse.json({ message: 'Vigencia inválida' }, { status: 400 });
     }
 
     const accessToken = await getValidAccessToken(userId);
@@ -82,30 +85,65 @@ export async function POST(
       );
     }
     const productData = await productRes.json();
-    const originalPrice = Number(productData?.price ?? 0);
     const permalink = productData?.permalink ?? '';
-    const discountedPrice = Math.round(
-      originalPrice * (1 - discount / 100) * 100
-    ) / 100;
+    const originalPrice = Number(productData?.price ?? 0);
 
-    const updateRes = await fetch(`https://api.mercadolibre.com/items/${id}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      body: JSON.stringify({ price: discountedPrice }),
-    });
+    const promotionPayload = {
+      type: 'custom',
+      value_type: 'PERCENTAGE',
+      value: discount,
+      start_date: new Date().toISOString(),
+      finish_date: new Date(expiresAt).toISOString(),
+      items: [{ id }],
+    };
 
-    if (!updateRes.ok) {
+    const promoRes = await fetch(
+      'https://api.mercadolibre.com/seller-promotions/promotions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(promotionPayload),
+      }
+    );
+
+    if (!promoRes.ok) {
       return NextResponse.json(
         { message: 'No se pudo aplicar la promoción' },
-        { status: updateRes.status }
+        { status: promoRes.status }
       );
     }
 
-    return NextResponse.json({ success: true, permalink }, { status: 200 });
+    const promoData = await promoRes.json();
+    const promotionId = promoData.id as string;
+    const expirationDate = promoData.finish_date || promoData.finishDate || expiresAt;
+
+    await prisma.product.upsert({
+      where: { id },
+      update: {
+        promotionId,
+        promotionExpiresAt: new Date(expirationDate),
+        promotionLink: permalink,
+      },
+      create: {
+        id,
+        name: productData?.title ?? '',
+        cost: 0,
+        price: originalPrice,
+        userId,
+        promotionId,
+        promotionExpiresAt: new Date(expirationDate),
+        promotionLink: permalink,
+      },
+    });
+
+    return NextResponse.json(
+      { success: true, promotionId, expiresAt: expirationDate, permalink },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error setting promotion:', error);
     return NextResponse.json({ message: 'Error en el servidor' }, { status: 500 });
