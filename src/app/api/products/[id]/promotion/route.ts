@@ -49,7 +49,7 @@ async function getValidAccessToken(userId: string) {
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const cookieStore = await cookies();
@@ -71,7 +71,7 @@ export async function POST(
     }
 
     const accessToken = await getValidAccessToken(userId);
-    const { id } = await params;
+    const { id } = params;
     const productRes = await fetch(`https://api.mercadolibre.com/items/${id}` , {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -94,12 +94,11 @@ export async function POST(
     const promotionPayload = {
       type: 'custom',
       site_id: marketplaceId,
-      marketplace_id: marketplaceId,
       value_type: 'PERCENTAGE',
       value: discount,
       start_date: new Date().toISOString(),
       finish_date: new Date(expiresAt).toISOString(),
-      items: [{ id, price: originalPrice, currency_id: currencyId }],
+      items: [{ item_id: id, price: originalPrice, currency_id: currencyId }],
     };
 
     const promoRes = await fetch(
@@ -116,8 +115,20 @@ export async function POST(
     );
 
     if (!promoRes.ok) {
+      let details: string | undefined;
+      try {
+        const errorJson = await promoRes.json();
+        details = JSON.stringify(errorJson);
+      } catch {
+        try {
+          details = await promoRes.text();
+        } catch {
+          details = undefined;
+        }
+      }
+      console.error('Mercado Libre promotion error:', promoRes.status, details);
       return NextResponse.json(
-        { message: 'No se pudo aplicar la promoción' },
+        { message: 'No se pudo aplicar la promoción', details },
         { status: promoRes.status }
       );
     }
