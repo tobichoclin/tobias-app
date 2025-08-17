@@ -44,11 +44,7 @@ async function getValidAccessToken(userId: string) {
   return user.mercadolibreAccessToken;
 }
 
-function generateCouponCode() {
-  return 'PROMO-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-}
-
-export async function POST() {
+export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
@@ -67,17 +63,21 @@ export async function POST() {
 
     const accessToken = await getValidAccessToken(userId);
 
-    // Obtener clientes con al menos 2 compras
-    const customers = await prisma.customer.findMany({
-      where: { userId },
-      include: { _count: { select: { orders: true } } },
-    });
+    const { customerIds, productId, discount } = await request.json();
+    if (!Array.isArray(customerIds) || !productId || !discount) {
+      return NextResponse.json({ message: 'Datos inválidos' }, { status: 400 });
+    }
 
-    const recurrentCustomers = customers.filter((c) => c._count.orders >= 2);
+    const productRes = await fetch(`https://api.mercadolibre.com/items/${productId}`);
+    const productData = await productRes.json();
+    const productTitle = productData?.title ?? 'nuestro producto';
 
-    const promotionsSent: { customerId: string; coupon: string }[] = [];
+    const promotionsSent: { customerId: string }[] = [];
 
-    for (const customer of recurrentCustomers) {
+    for (const id of customerIds) {
+      const customer = await prisma.customer.findUnique({ where: { id, userId } });
+      if (!customer) continue;
+
       const lastOrder = await prisma.order.findFirst({
         where: { customerId: customer.id },
         orderBy: { orderDate: 'desc' },
@@ -85,8 +85,7 @@ export async function POST() {
 
       if (!lastOrder) continue;
 
-      const coupon = generateCouponCode();
-      const message = `¡Gracias por tus compras! Usa el cupón ${coupon} para un 10% de descuento en tu próxima compra.`;
+      const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}.`;
 
       try {
         await fetch(
@@ -109,12 +108,7 @@ export async function POST() {
         continue;
       }
 
-      // Canal alternativo: email
-      if (customer.email) {
-        console.log(`Enviar email a ${customer.email} con cupón ${coupon}`);
-      }
-
-      promotionsSent.push({ customerId: customer.id, coupon });
+      promotionsSent.push({ customerId: customer.id });
     }
 
     return NextResponse.json({ success: true, promotionsSent }, { status: 200 });
