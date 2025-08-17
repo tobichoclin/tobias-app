@@ -228,6 +228,21 @@ export default function DashboardPage() {
     }
   };
 
+  const handleSendPromotions = async () => {
+    try {
+      const response = await fetch('/api/promotions', { method: 'POST' });
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Promociones enviadas a ${result.promotionsSent.length} clientes`);
+      } else {
+        alert('No se pudieron enviar las promociones');
+      }
+    } catch (error) {
+      console.error('Error enviando promociones:', error);
+      alert('No se pudieron enviar las promociones');
+    }
+  };
+
   const handleMercadoLibreDisconnect = async () => {
     if (confirm('¿Estás seguro de que quieres desconectar tu cuenta de MercadoLibre?')) {
       try {
@@ -426,8 +441,14 @@ export default function DashboardPage() {
               </select>
             </div>
             <button
+              onClick={handleSendPromotions}
+              className="ml-auto rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
+            >
+              Enviar promociones a recurrentes
+            </button>
+            <button
               onClick={handleSendMessageAll}
-              className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
             >
               Enviar mensaje a todos
             </button>
