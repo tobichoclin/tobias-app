@@ -253,21 +253,27 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ discount, expiresAt }),
       });
-      let data: {
-        permalink?: string;
-        promotionId?: string;
-        expiresAt?: string;
-        message?: string;
-      } = {};
-      try {
-        data = await res.json();
-      } catch {
-        data = {};
-      }
-      if (!res.ok) {
-        alert(data.message || 'No se pudo aplicar la promoción');
-        return;
-      }
+        let data: {
+          permalink?: string;
+          promotionId?: string;
+          expiresAt?: string;
+          message?: string;
+          details?: string;
+        } = {};
+        try {
+          data = await res.json();
+        } catch {
+          data = {};
+        }
+        if (!res.ok) {
+          console.error('Promotion request failed:', data);
+          alert(
+            `${data.message || 'No se pudo aplicar la promoción'}${
+              data.details ? `: ${data.details}` : ''
+            }`
+          );
+          return;
+        }
       if (data.permalink && data.promotionId && data.expiresAt) {
         setPromotionData((prev) => ({
           ...prev,
