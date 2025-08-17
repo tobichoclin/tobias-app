@@ -87,14 +87,16 @@ export async function POST(
     const productData = await productRes.json();
     const permalink = productData?.permalink ?? '';
     const originalPrice = Number(productData?.price ?? 0);
+    const marketplaceId = productData?.site_id || 'MLA';
 
     const promotionPayload = {
       type: 'custom',
+      marketplace_id: marketplaceId,
       value_type: 'PERCENTAGE',
       value: discount,
       start_date: new Date().toISOString(),
       finish_date: new Date(expiresAt).toISOString(),
-      items: [{ id }],
+      items: [{ id, price: originalPrice }],
     };
 
     const promoRes = await fetch(
