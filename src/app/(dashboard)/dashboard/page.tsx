@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [promotionDiscount, setPromotionDiscount] = useState('');
+  const [promotionLinks, setPromotionLinks] = useState<Record<string, string>>({});
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -271,6 +272,45 @@ export default function DashboardPage() {
       console.error('Error enviando promociones:', error);
       alert('No se pudieron enviar las promociones');
     }
+  };
+
+  const handleProductPromotion = async (productId: string) => {
+    const discountStr = prompt('Porcentaje de descuento:');
+    if (!discountStr) return;
+    const discount = Number(discountStr);
+    if (isNaN(discount) || discount <= 0) {
+      alert('Descuento inválido');
+      return;
+    }
+    try {
+      const res = await fetch(`/api/products/${productId}/promotion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ discount }),
+      });
+      let data: { permalink?: string; message?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+      if (!res.ok) {
+        alert(data.message || 'No se pudo aplicar la promoción');
+        return;
+      }
+      if (data.permalink) {
+        setPromotionLinks((prev) => ({ ...prev, [productId]: data.permalink! }));
+      }
+      alert('Promoción aplicada');
+    } catch (error) {
+      console.error('Error setting promotion:', error);
+      alert('No se pudo aplicar la promoción');
+    }
+  };
+
+  const handleCopyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    alert('Link copiado');
   };
 
   const handleMercadoLibreDisconnect = async () => {
@@ -537,12 +577,9 @@ export default function DashboardPage() {
           ) : products.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {products.map((product) => (
-                <a
+                <div
                   key={product.id}
-                  href={`https://www.mercadolibre.com.ar/publicaciones/${product.id}/modificar`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="border rounded-lg overflow-hidden shadow hover:shadow-lg transition block"
+                  className="border rounded-lg overflow-hidden shadow hover:shadow-lg transition"
                 >
                   <img
                     src={product.thumbnail}
@@ -559,8 +596,24 @@ export default function DashboardPage() {
                     <p className="text-sm text-gray-600">
                       Stock: {product.available_quantity}
                     </p>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <button
+                        onClick={() => handleProductPromotion(product.id)}
+                        className="rounded bg-green-600 px-2 py-1 text-sm font-medium text-white hover:bg-green-700"
+                      >
+                        Poner en promoción
+                      </button>
+                      {promotionLinks[product.id] && (
+                        <button
+                          onClick={() => handleCopyLink(promotionLinks[product.id])}
+                          className="rounded bg-blue-600 px-2 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                        >
+                          Copiar link
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </a>
+                </div>
               ))}
             </div>
           ) : (
