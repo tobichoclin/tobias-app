@@ -81,14 +81,17 @@ export async function POST(request: Request) {
     const originalPrice = Number(productData?.price ?? 0);
     const marketplaceId = productData?.site_id || 'MLA';
 
+    const currencyId = productData?.currency_id || 'ARS';
+
     const promotionPayload = {
       type: 'custom',
+      site_id: marketplaceId,
       marketplace_id: marketplaceId,
       value_type: 'PERCENTAGE',
       value: discount,
       start_date: new Date().toISOString(),
       finish_date: new Date(expiresAt).toISOString(),
-      items: [{ id: productId, price: originalPrice }],
+      items: [{ id: productId, price: originalPrice, currency_id: currencyId }],
     };
 
     const promoRes = await fetch(
