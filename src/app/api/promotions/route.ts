@@ -80,6 +80,7 @@ export async function POST(request: Request) {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
       body: JSON.stringify({ price: discountedPrice }),
     });
@@ -100,13 +101,14 @@ export async function POST(request: Request) {
       const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}. Aprovecha la oferta aquí: ${productLink}`;
 
       try {
-        await fetch(
+        const sendRes = await fetch(
           `https://api.mercadolibre.com/messages/packs/${lastOrder.mercadolibreOrderId.toString()}/sellers/${user.mercadolibreId}?tag=post_sale`,
           {
             method: 'POST',
             headers: {
               Authorization: `Bearer ${accessToken}`,
               'Content-Type': 'application/json',
+              Accept: 'application/json',
             },
             body: JSON.stringify({
               from: { user_id: Number(user.mercadolibreId) },
@@ -115,6 +117,11 @@ export async function POST(request: Request) {
             }),
           }
         );
+
+        if (!sendRes.ok) {
+          console.error('Error en respuesta de promoción:', await sendRes.text());
+          continue;
+        }
       } catch (err) {
         console.error('Error enviando promoción:', err);
         continue;
