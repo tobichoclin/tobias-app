@@ -69,8 +69,12 @@ export async function GET() {
     }
 
     const detailsData = await detailsRes.json();
-    const mapped = detailsData.map(
-      (d: {
+    const mapped = detailsData
+      .filter(
+        (d: { code: number; body?: Record<string, unknown> }) =>
+          d.code === 200 && d.body
+      )
+      .map((d: {
         body: {
           id: string;
           title: string;
@@ -84,8 +88,7 @@ export async function GET() {
         price: d.body.price,
         thumbnail: d.body.thumbnail,
         available_quantity: d.body.available_quantity,
-      })
-    );
+      }));
 
     return NextResponse.json(mapped, { status: 200 });
   } catch (error) {
