@@ -63,8 +63,14 @@ export async function POST(request: Request) {
 
     const accessToken = await getValidAccessToken(userId);
 
-    const { customerIds, productId, discount } = await request.json();
-    if (!Array.isArray(customerIds) || !productId || !discount) {
+    const { customerIds, productId, discount, expiresAt } = await request.json();
+    if (
+      !Array.isArray(customerIds) ||
+      !productId ||
+      !discount ||
+      !expiresAt ||
+      isNaN(Date.parse(expiresAt))
+    ) {
       return NextResponse.json({ message: 'Datos inválidos' }, { status: 400 });
     }
 
@@ -73,16 +79,55 @@ export async function POST(request: Request) {
     const productTitle = productData?.title ?? 'nuestro producto';
     const productLink = productData?.permalink ?? '';
     const originalPrice = Number(productData?.price ?? 0);
-    const discountedPrice = Math.round(originalPrice * (1 - discount / 100) * 100) / 100;
 
-    await fetch(`https://api.mercadolibre.com/items/${productId}`, {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+    const promotionPayload = {
+      type: 'custom',
+      value_type: 'PERCENTAGE',
+      value: discount,
+      start_date: new Date().toISOString(),
+      finish_date: new Date(expiresAt).toISOString(),
+      items: [{ id: productId }],
+    };
+
+    const promoRes = await fetch(
+      'https://api.mercadolibre.com/seller-promotions/promotions',
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(promotionPayload),
+      }
+    );
+    if (!promoRes.ok) {
+      return NextResponse.json(
+        { message: 'No se pudo aplicar la promoción' },
+        { status: promoRes.status }
+      );
+    }
+    const promoData = await promoRes.json();
+    const promotionId = promoData.id as string;
+    const expirationDate = promoData.finish_date || promoData.finishDate || expiresAt;
+
+    await prisma.product.upsert({
+      where: { id: productId },
+      update: {
+        promotionId,
+        promotionExpiresAt: new Date(expirationDate),
+        promotionLink: productLink,
       },
-      body: JSON.stringify({ price: discountedPrice }),
+      create: {
+        id: productId,
+        name: productData?.title ?? '',
+        cost: 0,
+        price: originalPrice,
+        userId,
+        promotionId,
+        promotionExpiresAt: new Date(expirationDate),
+        promotionLink: productLink,
+      },
     });
 
     const promotionsSent: { customerId: string }[] = [];

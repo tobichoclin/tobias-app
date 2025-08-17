@@ -71,7 +71,9 @@ export default function DashboardPage() {
   const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
   const [products, setProducts] = useState<MLProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [promotionLinks, setPromotionLinks] = useState<Record<string, string>>({});
+  const [promotionData, setPromotionData] = useState<
+    Record<string, { link: string; promotionId: string; expiresAt: string }>
+  >({});
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -237,13 +239,26 @@ export default function DashboardPage() {
       alert('Descuento inválido');
       return;
     }
+    const daysStr = prompt('Vigencia en días:');
+    if (!daysStr) return;
+    const days = Number(daysStr);
+    if (isNaN(days) || days <= 0) {
+      alert('Vigencia inválida');
+      return;
+    }
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     try {
       const res = await fetch(`/api/products/${productId}/promotion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ discount }),
+        body: JSON.stringify({ discount, expiresAt }),
       });
-      let data: { permalink?: string; message?: string } = {};
+      let data: {
+        permalink?: string;
+        promotionId?: string;
+        expiresAt?: string;
+        message?: string;
+      } = {};
       try {
         data = await res.json();
       } catch {
@@ -253,8 +268,15 @@ export default function DashboardPage() {
         alert(data.message || 'No se pudo aplicar la promoción');
         return;
       }
-      if (data.permalink) {
-        setPromotionLinks((prev) => ({ ...prev, [productId]: data.permalink! }));
+      if (data.permalink && data.promotionId && data.expiresAt) {
+        setPromotionData((prev) => ({
+          ...prev,
+          [productId]: {
+            link: data.permalink!,
+            promotionId: data.promotionId!,
+            expiresAt: data.expiresAt!,
+          },
+        }));
       }
       alert('Promoción aplicada');
     } catch (error) {
@@ -552,13 +574,20 @@ export default function DashboardPage() {
                       >
                         Poner en promoción
                       </button>
-                      {promotionLinks[product.id] && (
-                        <button
-                          onClick={() => handleCopyLink(promotionLinks[product.id])}
-                          className="rounded bg-blue-600 px-2 py-1 text-sm font-medium text-white hover:bg-blue-700"
-                        >
-                          Copiar link
-                        </button>
+                      {promotionData[product.id]?.link && (
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() =>
+                              handleCopyLink(promotionData[product.id].link)
+                            }
+                            className="rounded bg-blue-600 px-2 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                          >
+                            Copiar link
+                          </button>
+                          <p className="text-xs text-gray-600">
+                            Expira: {new Date(promotionData[product.id].expiresAt).toLocaleDateString()}
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>
