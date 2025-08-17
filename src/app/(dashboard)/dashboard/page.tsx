@@ -248,7 +248,7 @@ export default function DashboardPage() {
     }
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     try {
-      const res = await fetch(`/api/products/${productId}/promotion`, {
+      const response = await fetch(`/api/products/${productId}/promotion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ discount, expiresAt }),
@@ -258,14 +258,20 @@ export default function DashboardPage() {
         promotionId?: string;
         expiresAt?: string;
         message?: string;
+        details?: string;
       } = {};
       try {
-        data = await res.json();
-      } catch {
-        data = {};
+        data = await response.json();
+      } catch (err) {
+        console.error('Failed to parse promotion response:', err);
       }
-      if (!res.ok) {
-        alert(data.message || 'No se pudo aplicar la promoción');
+      if (!response.ok) {
+        console.error('Promotion request failed:', data);
+        alert(
+          `${data.message || 'No se pudo aplicar la promoción'}${
+            data.details ? `: ${data.details}` : ''
+          }`
+        );
         return;
       }
       if (data.permalink && data.promotionId && data.expiresAt) {
