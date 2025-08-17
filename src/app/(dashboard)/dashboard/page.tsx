@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 
 // --- Funciones para PKCE ---
 function base64URLEncode(str: Buffer) {
@@ -71,6 +71,9 @@ export default function DashboardPage() {
   const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
   const [products, setProducts] = useState<MLProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [promotionDiscount, setPromotionDiscount] = useState('');
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -228,12 +231,24 @@ export default function DashboardPage() {
     }
   };
 
-  const handleSendPromotions = async () => {
+  const handleSendPromotion = async () => {
     try {
-      const response = await fetch('/api/promotions', { method: 'POST' });
+      const body = {
+        customerIds: filteredCustomers.map((c) => c.id),
+        productId: selectedProductId,
+        discount: Number(promotionDiscount),
+      };
+      const response = await fetch('/api/promotions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
       if (response.ok) {
         const result = await response.json();
         alert(`Promociones enviadas a ${result.promotionsSent.length} clientes`);
+        setShowPromotionModal(false);
+        setSelectedProductId('');
+        setPromotionDiscount('');
       } else {
         alert('No se pudieron enviar las promociones');
       }
@@ -317,8 +332,9 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-4xl mx-auto px-4">
+    <Fragment>
+      <div className="min-h-screen bg-gray-100 py-8">
+        <div className="max-w-4xl mx-auto px-4">
         {/* Header del Dashboard */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center">
@@ -441,10 +457,10 @@ export default function DashboardPage() {
               </select>
             </div>
             <button
-              onClick={handleSendPromotions}
+              onClick={() => setShowPromotionModal(true)}
               className="ml-auto rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
             >
-              Enviar promociones a recurrentes
+              Enviar promoción
             </button>
             <button
               onClick={handleSendMessageAll}
@@ -551,7 +567,48 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      {showPromotionModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white p-4 rounded shadow-md w-80">
+            <h3 className="text-lg mb-2">Enviar promoción</h3>
+            <select
+              value={selectedProductId}
+              onChange={(e) => setSelectedProductId(e.target.value)}
+              className="border rounded px-2 py-1 w-full mb-2"
+            >
+              <option value="">Selecciona un producto</option>
+              {products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={promotionDiscount}
+              onChange={(e) => setPromotionDiscount(e.target.value)}
+              placeholder="Descuento %"
+              className="border rounded px-2 py-1 w-full mb-2"
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowPromotionModal(false)}
+                className="px-3 py-1 rounded bg-gray-300"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSendPromotion}
+                className="px-3 py-1 rounded bg-green-600 text-white"
+              >
+                Enviar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Fragment>
   );
 }
