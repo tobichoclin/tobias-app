@@ -71,9 +71,6 @@ export default function DashboardPage() {
   const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
   const [products, setProducts] = useState<MLProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
-  const [showPromotionModal, setShowPromotionModal] = useState(false);
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [promotionDiscount, setPromotionDiscount] = useState('');
   const [promotionLinks, setPromotionLinks] = useState<Record<string, string>>({});
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
@@ -229,48 +226,6 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Error enviando mensajes:', error);
       alert('No se pudieron enviar los mensajes');
-    }
-  };
-
-  const handleSendPromotion = async () => {
-    if (filteredCustomers.length === 0) {
-      alert('No hay compradores para enviar promociones.');
-      return;
-    }
-    try {
-      const body = {
-        customerIds: filteredCustomers.map((c) => c.id),
-        productId: selectedProductId,
-        discount: Number(promotionDiscount),
-      };
-      const response = await fetch('/api/promotions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      let result: { promotionsSent?: unknown; message?: string } = {};
-      try {
-        result = await response.json();
-      } catch {
-        result = {};
-      }
-
-      if (response.ok) {
-        const sentCount = Array.isArray(result.promotionsSent) ? result.promotionsSent.length : 0;
-        if (sentCount > 0) {
-          alert(`Promociones enviadas a ${sentCount} clientes`);
-          setShowPromotionModal(false);
-          setSelectedProductId('');
-          setPromotionDiscount('');
-        } else {
-          alert(result.message || 'No se pudieron enviar las promociones');
-        }
-      } else {
-        alert(result.message || 'No se pudieron enviar las promociones');
-      }
-    } catch (error) {
-      console.error('Error enviando promociones:', error);
-      alert('No se pudieron enviar las promociones');
     }
   };
 
@@ -512,14 +467,8 @@ export default function DashboardPage() {
               </select>
             </div>
             <button
-              onClick={() => setShowPromotionModal(true)}
-              className="ml-auto rounded bg-green-600 px-3 py-1 text-sm font-medium text-white hover:bg-green-700"
-            >
-              Enviar promoción
-            </button>
-            <button
               onClick={handleSendMessageAll}
-              className="rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
             >
               Enviar mensaje a todos
             </button>
@@ -637,56 +586,6 @@ export default function DashboardPage() {
         </div>
         </div>
       </div>
-      {showPromotionModal && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white p-4 rounded shadow-md w-80">
-            <h3 className="text-lg mb-2">Enviar promoción</h3>
-            <div className="mb-2 max-h-60 overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {products.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedProductId(p.id)}
-                    className={`border rounded-lg overflow-hidden shadow hover:shadow-lg transition text-left ${selectedProductId === p.id ? 'ring-2 ring-green-500' : ''}`}
-                  >
-                    <img
-                      src={p.thumbnail}
-                      alt={p.title}
-                      className="w-full h-24 object-cover"
-                    />
-                    <div className="p-2">
-                      <h4 className="text-xs font-medium text-gray-900 truncate">{p.title}</h4>
-                      <p className="text-xs text-gray-600">${p.price}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <input
-              type="number"
-              value={promotionDiscount}
-              onChange={(e) => setPromotionDiscount(e.target.value)}
-              placeholder="Descuento %"
-              className="border rounded px-2 py-1 w-full mb-2"
-            />
-            <div className="flex justify-end space-x-2">
-              <button
-                onClick={() => setShowPromotionModal(false)}
-                className="px-3 py-1 rounded bg-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSendPromotion}
-                className="px-3 py-1 rounded bg-green-600 text-white"
-              >
-                Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </Fragment>
   );
 }

@@ -49,7 +49,7 @@ async function getValidAccessToken(userId: string) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -68,8 +68,8 @@ export async function POST(
     }
 
     const accessToken = await getValidAccessToken(userId);
-
-    const productRes = await fetch(`https://api.mercadolibre.com/items/${params.id}`);
+    const { id } = await params;
+    const productRes = await fetch(`https://api.mercadolibre.com/items/${id}`);
     if (!productRes.ok) {
       return NextResponse.json(
         { message: 'Producto no encontrado' },
@@ -79,9 +79,11 @@ export async function POST(
     const productData = await productRes.json();
     const originalPrice = Number(productData?.price ?? 0);
     const permalink = productData?.permalink ?? '';
-    const discountedPrice = Math.round(originalPrice * (1 - discount / 100) * 100) / 100;
+    const discountedPrice = Math.round(
+      originalPrice * (1 - discount / 100) * 100
+    ) / 100;
 
-    const updateRes = await fetch(`https://api.mercadolibre.com/items/${params.id}`, {
+    const updateRes = await fetch(`https://api.mercadolibre.com/items/${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${accessToken}`,
