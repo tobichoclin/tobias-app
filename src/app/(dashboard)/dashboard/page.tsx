@@ -232,6 +232,10 @@ export default function DashboardPage() {
   };
 
   const handleSendPromotion = async () => {
+    if (filteredCustomers.length === 0) {
+      alert('No hay compradores para enviar promociones.');
+      return;
+    }
     try {
       const body = {
         customerIds: filteredCustomers.map((c) => c.id),
@@ -245,10 +249,15 @@ export default function DashboardPage() {
       });
       if (response.ok) {
         const result = await response.json();
-        alert(`Promociones enviadas a ${result.promotionsSent.length} clientes`);
-        setShowPromotionModal(false);
-        setSelectedProductId('');
-        setPromotionDiscount('');
+        const sentCount = Array.isArray(result.promotionsSent) ? result.promotionsSent.length : 0;
+        if (sentCount > 0) {
+          alert(`Promociones enviadas a ${sentCount} clientes`);
+          setShowPromotionModal(false);
+          setSelectedProductId('');
+          setPromotionDiscount('');
+        } else {
+          alert('No se pudieron enviar las promociones');
+        }
       } else {
         alert('No se pudieron enviar las promociones');
       }
@@ -573,18 +582,28 @@ export default function DashboardPage() {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white p-4 rounded shadow-md w-80">
             <h3 className="text-lg mb-2">Enviar promoción</h3>
-            <select
-              value={selectedProductId}
-              onChange={(e) => setSelectedProductId(e.target.value)}
-              className="border rounded px-2 py-1 w-full mb-2"
-            >
-              <option value="">Selecciona un producto</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title}
-                </option>
-              ))}
-            </select>
+            <div className="mb-2 max-h-60 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {products.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setSelectedProductId(p.id)}
+                    className={`border rounded-lg overflow-hidden shadow hover:shadow-lg transition text-left ${selectedProductId === p.id ? 'ring-2 ring-green-500' : ''}`}
+                  >
+                    <img
+                      src={p.thumbnail}
+                      alt={p.title}
+                      className="w-full h-24 object-cover"
+                    />
+                    <div className="p-2">
+                      <h4 className="text-xs font-medium text-gray-900 truncate">{p.title}</h4>
+                      <p className="text-xs text-gray-600">${p.price}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <input
               type="number"
               value={promotionDiscount}
