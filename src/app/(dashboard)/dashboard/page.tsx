@@ -247,8 +247,14 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      let result: { promotionsSent?: unknown; message?: string } = {};
+      try {
+        result = await response.json();
+      } catch {
+        result = {};
+      }
+
       if (response.ok) {
-        const result = await response.json();
         const sentCount = Array.isArray(result.promotionsSent) ? result.promotionsSent.length : 0;
         if (sentCount > 0) {
           alert(`Promociones enviadas a ${sentCount} clientes`);
@@ -256,10 +262,10 @@ export default function DashboardPage() {
           setSelectedProductId('');
           setPromotionDiscount('');
         } else {
-          alert('No se pudieron enviar las promociones');
+          alert(result.message || 'No se pudieron enviar las promociones');
         }
       } else {
-        alert('No se pudieron enviar las promociones');
+        alert(result.message || 'No se pudieron enviar las promociones');
       }
     } catch (error) {
       console.error('Error enviando promociones:', error);
