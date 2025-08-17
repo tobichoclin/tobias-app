@@ -68,6 +68,9 @@ export async function POST(request: Request) {
       !Array.isArray(customerIds) ||
       !productId ||
       !discount ||
+      typeof discount !== 'number' ||
+      discount >= 100 ||
+      discount <= 0 ||
       !expiresAt ||
       isNaN(Date.parse(expiresAt))
     ) {
@@ -82,6 +85,9 @@ export async function POST(request: Request) {
     const marketplaceId = productData?.site_id || 'MLA';
 
     const currencyId = productData?.currency_id || 'ARS';
+    const discountedPrice = Number(
+      (originalPrice * (1 - discount / 100)).toFixed(2)
+    );
 
     const promotionPayload = {
       type: 'custom',
@@ -90,7 +96,7 @@ export async function POST(request: Request) {
       value: discount,
       start_date: new Date().toISOString(),
       finish_date: new Date(expiresAt).toISOString(),
-      items: [{ item_id: productId, price: originalPrice, currency_id: currencyId }],
+      items: [{ item_id: productId, price: discountedPrice, currency_id: currencyId }],
     };
 
     const promoRes = await fetch(
