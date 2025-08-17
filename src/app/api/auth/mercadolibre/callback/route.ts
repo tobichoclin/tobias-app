@@ -110,3 +110,7 @@ export async function GET(request: Request) {
     await prisma.$disconnect();
   }
 }
+
+export async function POST(request: Request) {
+  return GET(request);
+}
