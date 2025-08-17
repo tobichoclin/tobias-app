@@ -129,6 +129,9 @@ export async function POST(request: Request) {
 
       promotionsSent.push({ customerId: customer.id });
     }
+    if (promotionsSent.length === 0) {
+      return NextResponse.json({ message: 'No se pudieron enviar las promociones' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true, promotionsSent }, { status: 200 });
   } catch (error) {
