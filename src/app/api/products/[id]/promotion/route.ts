@@ -69,7 +69,12 @@ export async function POST(
 
     const accessToken = await getValidAccessToken(userId);
     const { id } = await params;
-    const productRes = await fetch(`https://api.mercadolibre.com/items/${id}`);
+    const productRes = await fetch(`https://api.mercadolibre.com/items/${id}` , {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+      },
+    });
     if (!productRes.ok) {
       return NextResponse.json(
         { message: 'Producto no encontrado' },
