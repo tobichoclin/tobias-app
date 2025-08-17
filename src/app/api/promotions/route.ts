@@ -71,6 +71,18 @@ export async function POST(request: Request) {
     const productRes = await fetch(`https://api.mercadolibre.com/items/${productId}`);
     const productData = await productRes.json();
     const productTitle = productData?.title ?? 'nuestro producto';
+    const productLink = productData?.permalink ?? '';
+    const originalPrice = Number(productData?.price ?? 0);
+    const discountedPrice = Math.round(originalPrice * (1 - discount / 100) * 100) / 100;
+
+    await fetch(`https://api.mercadolibre.com/items/${productId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ price: discountedPrice }),
+    });
 
     const promotionsSent: { customerId: string }[] = [];
 
@@ -85,7 +97,7 @@ export async function POST(request: Request) {
 
       if (!lastOrder) continue;
 
-      const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}.`;
+      const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}. Aprovecha la oferta aquí: ${productLink}`;
 
       try {
         await fetch(
