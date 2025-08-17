@@ -100,7 +100,7 @@ export async function POST(request: Request) {
     };
 
     const promoRes = await fetch(
-      'https://api.mercadolibre.com/seller-promotions/promotions',
+      'https://api.mercadolibre.com/seller-promotions/promotions?app_version=1',
       {
         method: 'POST',
         headers: {

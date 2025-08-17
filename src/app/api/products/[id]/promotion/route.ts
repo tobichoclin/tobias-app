@@ -49,7 +49,7 @@ async function getValidAccessToken(userId: string) {
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -71,7 +71,7 @@ export async function POST(
     }
 
     const accessToken = await getValidAccessToken(userId);
-    const { id } = params;
+    const { id } = await params;
     const productRes = await fetch(`https://api.mercadolibre.com/items/${id}` , {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -105,7 +105,7 @@ export async function POST(
     };
 
     const promoRes = await fetch(
-      'https://api.mercadolibre.com/seller-promotions/promotions',
+      'https://api.mercadolibre.com/seller-promotions/promotions?app_version=1',
       {
         method: 'POST',
         headers: {
