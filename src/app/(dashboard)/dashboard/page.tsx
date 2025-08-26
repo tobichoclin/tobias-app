@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo, Fragment } from 'react';
+import Modal from '@/components/Modal';
+import Notification from '@/components/Notification';
 
 // --- Funciones para PKCE ---
 function base64URLEncode(str: Buffer) {
@@ -74,6 +76,11 @@ export default function DashboardPage() {
   const [promotionData, setPromotionData] = useState<
     Record<string, { link: string; promotionId: string; expiresAt: string }>
   >({});
+  const [notification, setNotification] = useState<string | null>(null);
+  const [messageModal, setMessageModal] = useState<{ open: boolean; customer?: Customer; text: string }>({ open: false, text: '' });
+  const [bulkModal, setBulkModal] = useState<{ open: boolean; text: string }>({ open: false, text: '' });
+  const [promotionModal, setPromotionModal] = useState<{ open: boolean; productId?: string; discount: string; days: string }>({ open: false, discount: '', days: '' });
+  const [disconnectModal, setDisconnectModal] = useState(false);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
 
@@ -143,11 +150,11 @@ export default function DashboardPage() {
     const success = urlParams.get('success');
     
     if (error === 'MLAccountAlreadyLinked') {
-      alert('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
+      setNotification('Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
     } else if (error === 'TokenError') {
-      alert('❌ Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
+      setNotification('Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
     } else if (success === 'true') {
-      alert('✅ ¡Conexión con MercadoLibre exitosa!');
+      setNotification('¡Conexión con MercadoLibre exitosa!');
       // Recargar el perfil para mostrar la nueva conexión
       fetchUserProfile();
       fetchCustomers();
@@ -180,144 +187,154 @@ export default function DashboardPage() {
     }
   }, [userProfile]);
 
-  const handleSendMessage = async (customer: Customer) => {
-    const message = prompt('Escribe tu mensaje:');
-    if (!message) return;
+  const handleSendMessage = (customer: Customer) => {
+    setMessageModal({ open: true, customer, text: '' });
+  };
 
+  const submitMessage = async () => {
+    if (!messageModal.customer || !messageModal.text) return;
     try {
-      const response = await fetch(`/api/customers/${customer.id}/message`, {
+      const response = await fetch(`/api/customers/${messageModal.customer.id}/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, orderId: customer.lastOrderId }),
+        body: JSON.stringify({ message: messageModal.text, orderId: messageModal.customer.lastOrderId }),
       });
-
       if (response.ok) {
-        alert('Mensaje enviado');
+        setNotification('Mensaje enviado');
       } else {
-        alert('No se pudo enviar el mensaje');
+        setNotification('No se pudo enviar el mensaje');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('No se pudo enviar el mensaje');
+      setNotification('No se pudo enviar el mensaje');
+    } finally {
+      setMessageModal({ open: false, customer: undefined, text: '' });
     }
   };
 
-  const handleSendMessageAll = async () => {
+  const handleSendMessageAll = () => {
     if (filteredCustomers.length === 0) {
-      alert('No hay compradores para enviar mensajes.');
+      setNotification('No hay compradores para enviar mensajes.');
       return;
     }
-    const message = prompt('Escribe tu mensaje para todos los compradores:');
-    if (!message) return;
+    setBulkModal({ open: true, text: '' });
+  };
+
+  const submitBulkMessage = async () => {
+    if (!bulkModal.text) return;
     try {
       const responses = await Promise.all(
         filteredCustomers.map((customer) =>
           fetch(`/api/customers/${customer.id}/message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message, orderId: customer.lastOrderId }),
+            body: JSON.stringify({ message: bulkModal.text, orderId: customer.lastOrderId }),
           })
         )
       );
       const failed = responses.filter((r) => !r.ok);
       if (failed.length > 0) {
-        alert(`Mensajes enviados con ${failed.length} errores.`);
+        setNotification(`Mensajes enviados con ${failed.length} errores.`);
       } else {
-        alert('Mensajes enviados');
+        setNotification('Mensajes enviados');
       }
     } catch (error) {
       console.error('Error enviando mensajes:', error);
-      alert('No se pudieron enviar los mensajes');
+      setNotification('No se pudieron enviar los mensajes');
+    } finally {
+      setBulkModal({ open: false, text: '' });
     }
   };
 
-  const handleProductPromotion = async (productId: string) => {
-    const discountStr = prompt('Porcentaje de descuento:');
-    if (!discountStr) return;
-    const discount = Number(discountStr);
-    if (isNaN(discount) || discount <= 0) {
-      alert('Descuento inválido');
-      return;
-    }
-    const daysStr = prompt('Vigencia en días:');
-    if (!daysStr) return;
-    const days = Number(daysStr);
-    if (isNaN(days) || days <= 0) {
-      alert('Vigencia inválida');
+  const handleProductPromotion = (productId: string) => {
+    setPromotionModal({ open: true, productId, discount: '', days: '' });
+  };
+
+  const submitPromotion = async () => {
+    const discount = Number(promotionModal.discount);
+    const days = Number(promotionModal.days);
+    if (
+      !promotionModal.productId ||
+      isNaN(discount) ||
+      discount <= 0 ||
+      isNaN(days) ||
+      days <= 0
+    ) {
+      setNotification('Datos inválidos');
       return;
     }
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     try {
-      const res = await fetch(`/api/products/${productId}/promotion`, {
+      const res = await fetch(`/api/products/${promotionModal.productId}/promotion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ discount, expiresAt }),
       });
-        let data: {
-          permalink?: string;
-          promotionId?: string;
-          expiresAt?: string;
-          message?: string;
-          details?: string;
-        } = {};
-        try {
-          data = await res.json();
-        } catch {
-          data = {};
-        }
-        if (!res.ok) {
-          console.error('Promotion request failed:', data);
-          alert(
-            `${data.message || 'No se pudo aplicar la promoción'}${
-              data.details ? `: ${data.details}` : ''
-            }`
-          );
-          return;
-        }
+      let data: {
+        permalink?: string;
+        promotionId?: string;
+        expiresAt?: string;
+        message?: string;
+        details?: string;
+      } = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+      if (!res.ok) {
+        console.error('Promotion request failed:', data);
+        setNotification(`${data.message || 'No se pudo aplicar la promoción'}${data.details ? `: ${data.details}` : ''}`);
+        return;
+      }
       if (data.permalink && data.promotionId && data.expiresAt) {
         setPromotionData((prev) => ({
           ...prev,
-          [productId]: {
+          [promotionModal.productId as string]: {
             link: data.permalink!,
             promotionId: data.promotionId!,
             expiresAt: data.expiresAt!,
           },
         }));
       }
-      alert('Promoción aplicada');
+      setNotification('Promoción aplicada');
     } catch (error) {
       console.error('Error setting promotion:', error);
-      alert('No se pudo aplicar la promoción');
+      setNotification('No se pudo aplicar la promoción');
+    } finally {
+      setPromotionModal({ open: false, productId: undefined, discount: '', days: '' });
     }
   };
 
   const handleCopyLink = (link: string) => {
     navigator.clipboard.writeText(link);
-    alert('Link copiado');
+    setNotification('Link copiado');
   };
 
-  const handleMercadoLibreDisconnect = async () => {
-    if (confirm('¿Estás seguro de que quieres desconectar tu cuenta de MercadoLibre?')) {
-      try {
-        const response = await fetch('/api/auth/mercadolibre/disconnect', {
-          method: 'POST',
-        });
+  const handleMercadoLibreDisconnect = () => {
+    setDisconnectModal(true);
+  };
 
-        if (response.ok) {
-          alert('✅ Cuenta de MercadoLibre desconectada exitosamente');
-          // Recargar el perfil
-          const profileResponse = await fetch('/api/user/profile');
-          if (profileResponse.ok) {
-            const data = await profileResponse.json();
-            setUserProfile(data);
-          }
-        } else {
-          alert('❌ Error al desconectar la cuenta');
+  const confirmDisconnect = async () => {
+    try {
+      const response = await fetch('/api/auth/mercadolibre/disconnect', {
+        method: 'POST',
+      });
+      if (response.ok) {
+        setNotification('Cuenta de MercadoLibre desconectada exitosamente');
+        const profileResponse = await fetch('/api/user/profile');
+        if (profileResponse.ok) {
+          const data = await profileResponse.json();
+          setUserProfile(data);
         }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('❌ Error al desconectar la cuenta');
+      } else {
+        setNotification('Error al desconectar la cuenta');
       }
+    } catch (error) {
+      console.error('Error:', error);
+      setNotification('Error al desconectar la cuenta');
+    } finally {
+      setDisconnectModal(false);
     }
   };
 
@@ -362,7 +379,7 @@ export default function DashboardPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-fiddo-blue mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando...</p>
         </div>
       </div>
@@ -371,18 +388,142 @@ export default function DashboardPage() {
 
   return (
     <Fragment>
-      <div className="min-h-screen bg-gray-100 py-8">
+      {notification && (
+        <Notification message={notification} onClose={() => setNotification(null)} />
+      )}
+      <Modal
+        title="Enviar mensaje"
+        isOpen={messageModal.open}
+        onClose={() => setMessageModal({ open: false, customer: undefined, text: '' })}
+        actions={
+          <>
+            <button
+              onClick={() => setMessageModal({ open: false, customer: undefined, text: '' })}
+              className="rounded bg-gray-200 px-3 py-1"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={submitMessage}
+              className="rounded bg-fiddo-blue px-3 py-1 text-white"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <textarea
+          value={messageModal.text}
+          onChange={(e) => setMessageModal({ ...messageModal, text: e.target.value })}
+          className="w-full rounded border p-2"
+          rows={4}
+        />
+      </Modal>
+      <Modal
+        title="Mensaje para compradores"
+        isOpen={bulkModal.open}
+        onClose={() => setBulkModal({ open: false, text: '' })}
+        actions={
+          <>
+            <button
+              onClick={() => setBulkModal({ open: false, text: '' })}
+              className="rounded bg-gray-200 px-3 py-1"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={submitBulkMessage}
+              className="rounded bg-fiddo-blue px-3 py-1 text-white"
+            >
+              Enviar
+            </button>
+          </>
+        }
+      >
+        <textarea
+          value={bulkModal.text}
+          onChange={(e) => setBulkModal({ ...bulkModal, text: e.target.value })}
+          className="w-full rounded border p-2"
+          rows={4}
+        />
+      </Modal>
+      <Modal
+        title="Promoción"
+        isOpen={promotionModal.open}
+        onClose={() => setPromotionModal({ open: false, productId: undefined, discount: '', days: '' })}
+        actions={
+          <>
+            <button
+              onClick={() => setPromotionModal({ open: false, productId: undefined, discount: '', days: '' })}
+              className="rounded bg-gray-200 px-3 py-1"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={submitPromotion}
+              className="rounded bg-fiddo-blue px-3 py-1 text-white"
+            >
+              Aplicar
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium">Porcentaje de descuento</label>
+            <input
+              type="number"
+              value={promotionModal.discount}
+              onChange={(e) => setPromotionModal({ ...promotionModal, discount: e.target.value })}
+              className="mt-1 w-full rounded border p-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Vigencia (días)</label>
+            <input
+              type="number"
+              value={promotionModal.days}
+              onChange={(e) => setPromotionModal({ ...promotionModal, days: e.target.value })}
+              className="mt-1 w-full rounded border p-2"
+            />
+          </div>
+        </div>
+      </Modal>
+      <Modal
+        title="Desconectar cuenta"
+        isOpen={disconnectModal}
+        onClose={() => setDisconnectModal(false)}
+        actions={
+          <>
+            <button
+              onClick={() => setDisconnectModal(false)}
+              className="rounded bg-gray-200 px-3 py-1"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmDisconnect}
+              className="rounded bg-fiddo-orange px-3 py-1 text-white"
+            >
+              Confirmar
+            </button>
+          </>
+        }
+      >
+        <p>¿Estás seguro de que quieres desconectar tu cuenta de MercadoLibre?</p>
+      </Modal>
+      <div className="min-h-screen bg-fiddo-blue/10 py-8">
         <div className="max-w-4xl mx-auto px-4">
         {/* Header del Dashboard */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">¡Bienvenido, {userProfile?.user.name}!</h1>
-              <p className="text-gray-600 mt-2">Panel de control de tu cuenta</p>
+              <h1 className="text-3xl font-bold text-fiddo-blue">Fiddo</h1>
+              <p className="text-gray-600 mt-1">¡Bienvenido, {userProfile?.user.name}!</p>
             </div>
             <button
               onClick={handleLogout}
-              className="rounded-md bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700"
+              className="rounded-md bg-fiddo-orange px-4 py-2 font-semibold text-white transition-colors hover:bg-fiddo-turquoise"
             >
               Cerrar Sesión
             </button>
@@ -439,7 +580,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={handleMercadoLibreDisconnect}
-                  className="w-full rounded-md bg-red-100 px-4 py-2 font-medium text-red-700 transition-colors hover:bg-red-200"
+                  className="w-full rounded-md bg-fiddo-orange/20 px-4 py-2 font-medium text-fiddo-orange transition-colors hover:bg-fiddo-orange/30"
                 >
                   Desconectar cuenta
                 </button>
@@ -452,7 +593,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={handleMercadoLibreConnect}
-                  className="w-full rounded-md bg-yellow-400 px-4 py-2 font-bold text-gray-800 transition-colors hover:bg-yellow-500"
+                  className="w-full rounded-md bg-fiddo-turquoise px-4 py-2 font-bold text-white transition-colors hover:bg-fiddo-blue"
                 >
                   Conectar con MercadoLibre
                 </button>
@@ -496,7 +637,7 @@ export default function DashboardPage() {
             </div>
             <button
               onClick={handleSendMessageAll}
-              className="ml-auto rounded bg-blue-600 px-3 py-1 text-sm font-medium text-white hover:bg-blue-700"
+              className="ml-auto rounded bg-fiddo-blue px-3 py-1 text-sm font-medium text-white hover:bg-fiddo-turquoise"
             >
               Enviar mensaje a todos
             </button>
@@ -531,7 +672,7 @@ export default function DashboardPage() {
                           <td className="px-4 py-2 text-sm">
                             <button
                               onClick={() => handleSendMessage(customer)}
-                              className="text-blue-600 hover:underline"
+                              className="text-fiddo-blue hover:underline"
                             >
                               Enviar mensaje
                             </button>
@@ -576,7 +717,7 @@ export default function DashboardPage() {
                     <div className="mt-2 flex flex-col gap-2">
                       <button
                         onClick={() => handleProductPromotion(product.id)}
-                        className="rounded bg-green-600 px-2 py-1 text-sm font-medium text-white hover:bg-green-700"
+                        className="rounded bg-fiddo-orange px-2 py-1 text-sm font-medium text-white hover:bg-fiddo-turquoise"
                       >
                         Poner en promoción
                       </button>
@@ -586,7 +727,7 @@ export default function DashboardPage() {
                             onClick={() =>
                               handleCopyLink(promotionData[product.id].link)
                             }
-                            className="rounded bg-blue-600 px-2 py-1 text-sm font-medium text-white hover:bg-blue-700"
+                            className="rounded bg-fiddo-blue px-2 py-1 text-sm font-medium text-white hover:bg-fiddo-turquoise"
                           >
                             Copiar link
                           </button>
@@ -603,21 +744,6 @@ export default function DashboardPage() {
           ) : (
             <p className="text-gray-600">No tienes productos activos.</p>
           )}
-        </div>
-
-        {/* Próximas funcionalidades */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Próximamente</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h3 className="font-medium text-gray-900">Órdenes</h3>
-              <p className="text-sm text-gray-600 mt-1">Rastrea tus ventas</p>
-            </div>
-            <div className="p-4 border border-gray-200 rounded-lg">
-              <h3 className="font-medium text-gray-900">Reportes</h3>
-              <p className="text-sm text-gray-600 mt-1">Analiza tu negocio</p>
-            </div>
-          </div>
         </div>
         </div>
       </div>
