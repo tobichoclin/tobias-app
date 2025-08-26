@@ -13,7 +13,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { notify } = useToast();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,12 +36,12 @@ export default function RegisterPage() {
 
       // Si el registro es exitoso, redirigir al login
       console.log('Usuario registrado con éxito:', data);
-      toast('Usuario registrado con éxito');
+      notify('Usuario registrado con éxito');
       router.push('/login');
 
     } catch (error: unknown) {
       console.error('Error en el registro:', error);
-      toast(error instanceof Error ? error.message : 'Error en el registro');
+      notify(error instanceof Error ? error.message : 'Error en el registro');
     } finally {
       setIsLoading(false);
     }

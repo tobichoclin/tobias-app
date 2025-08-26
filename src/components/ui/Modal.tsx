@@ -20,12 +20,19 @@ export default function Modal({
         <h3 className="text-lg font-semibold text-[color:var(--fiddo-blue)]">{title}</h3>
         <div className="mt-3 text-sm text-neutral-700">{children}</div>
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-2 rounded-xl border">Cancelar</button>
-          {onConfirm && (
-            <button onClick={onConfirm} className="px-3 py-2 rounded-xl text-white bg-[color:var(--fiddo-orange)] hover:bg-[color:var(--fiddo-orange-600)]">
-              {confirmText}
-            </button>
-          )}
+          <button 
+            onClick={onClose} 
+            className="px-3 py-2 rounded-xl border bg-white text-neutral-800 hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-[color:var(--fiddo-orange,orange)]"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-3 py-2 rounded-xl text-white bg-[color:var(--fiddo-orange,orange)] hover:bg-[color:var(--fiddo-orange-600,#ff9800)] focus:outline-none focus:ring-2 focus:ring-[color:var(--fiddo-orange,orange)] disabled:opacity-60 disabled:cursor-not-allowed"
+            disabled={!onConfirm}
+          >
+            {confirmText}
+          </button>
         </div>
       </div>
     </dialog>

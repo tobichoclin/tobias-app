@@ -28,6 +28,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+  {/* Logo eliminado del layout global */}
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

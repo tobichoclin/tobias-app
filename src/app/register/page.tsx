@@ -13,7 +13,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { notify } = useToast();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,12 +36,12 @@ export default function RegisterPage() {
 
       // Si el registro es exitoso, redirigir al login
       console.log('Usuario registrado con éxito:', data);
-      toast('Usuario registrado con éxito');
+      notify('Usuario registrado con éxito');
       router.push('/login');
 
     } catch (error: unknown) {
       console.error('Error en el registro:', error);
-      toast(error instanceof Error ? error.message : 'Error en el registro');
+      notify(error instanceof Error ? error.message : 'Error en el registro');
     } finally {
       setIsLoading(false);
     }
@@ -50,8 +50,8 @@ export default function RegisterPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-fiddo-blue via-fiddo-turquoise to-fiddo-orange p-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
-        <div className="text-center">
-          <Image src="/fiddo-logo.svg" alt="Fiddo" width={80} height={24} className="mx-auto" />
+        <div className="text-center flex flex-col items-center">
+          <img src="/brand/Fiddo.JPG" alt="Fiddo Logo" style={{height: 56, width: 'auto', maxWidth: 120}} className="mx-auto mb-2" />
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
             Crear una Cuenta
           </h2>
