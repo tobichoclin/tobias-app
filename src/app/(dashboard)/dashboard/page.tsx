@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import Modal from '@/components/Modal';
-import Notification from '@/components/Notification';
+import { useToast } from '@/components/ui/Toast';
 
 // --- Funciones para PKCE ---
 function base64URLEncode(str: Buffer) {
@@ -76,13 +76,13 @@ export default function DashboardPage() {
   const [promotionData, setPromotionData] = useState<
     Record<string, { link: string; promotionId: string; expiresAt: string }>
   >({});
-  const [notification, setNotification] = useState<string | null>(null);
   const [messageModal, setMessageModal] = useState<{ open: boolean; customer?: Customer; text: string }>({ open: false, text: '' });
   const [bulkModal, setBulkModal] = useState<{ open: boolean; text: string }>({ open: false, text: '' });
   const [promotionModal, setPromotionModal] = useState<{ open: boolean; productId?: string; discount: string; days: string }>({ open: false, discount: '', days: '' });
   const [disconnectModal, setDisconnectModal] = useState(false);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
+  const { toast } = useToast();
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
@@ -150,11 +150,11 @@ export default function DashboardPage() {
     const success = urlParams.get('success');
     
     if (error === 'MLAccountAlreadyLinked') {
-      setNotification('Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
+      toast('Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
     } else if (error === 'TokenError') {
-      setNotification('Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
+      toast('Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
     } else if (success === 'true') {
-      setNotification('¡Conexión con MercadoLibre exitosa!');
+      toast('¡Conexión con MercadoLibre exitosa!');
       // Recargar el perfil para mostrar la nueva conexión
       fetchUserProfile();
       fetchCustomers();
@@ -164,7 +164,7 @@ export default function DashboardPage() {
     if (error || success) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+    }, [toast]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -200,13 +200,13 @@ export default function DashboardPage() {
         body: JSON.stringify({ message: messageModal.text, orderId: messageModal.customer.lastOrderId }),
       });
       if (response.ok) {
-        setNotification('Mensaje enviado');
+        toast('Mensaje enviado');
       } else {
-        setNotification('No se pudo enviar el mensaje');
+        toast('No se pudo enviar el mensaje');
       }
     } catch (error) {
       console.error('Error:', error);
-      setNotification('No se pudo enviar el mensaje');
+      toast('No se pudo enviar el mensaje');
     } finally {
       setMessageModal({ open: false, customer: undefined, text: '' });
     }
@@ -214,7 +214,7 @@ export default function DashboardPage() {
 
   const handleSendMessageAll = () => {
     if (filteredCustomers.length === 0) {
-      setNotification('No hay compradores para enviar mensajes.');
+      toast('No hay compradores para enviar mensajes.');
       return;
     }
     setBulkModal({ open: true, text: '' });
@@ -234,13 +234,13 @@ export default function DashboardPage() {
       );
       const failed = responses.filter((r) => !r.ok);
       if (failed.length > 0) {
-        setNotification(`Mensajes enviados con ${failed.length} errores.`);
+        toast(`Mensajes enviados con ${failed.length} errores.`);
       } else {
-        setNotification('Mensajes enviados');
+        toast('Mensajes enviados');
       }
     } catch (error) {
       console.error('Error enviando mensajes:', error);
-      setNotification('No se pudieron enviar los mensajes');
+      toast('No se pudieron enviar los mensajes');
     } finally {
       setBulkModal({ open: false, text: '' });
     }
@@ -260,7 +260,7 @@ export default function DashboardPage() {
       isNaN(days) ||
       days <= 0
     ) {
-      setNotification('Datos inválidos');
+      toast('Datos inválidos');
       return;
     }
     const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
@@ -284,7 +284,7 @@ export default function DashboardPage() {
       }
       if (!res.ok) {
         console.error('Promotion request failed:', data);
-        setNotification(`${data.message || 'No se pudo aplicar la promoción'}${data.details ? `: ${data.details}` : ''}`);
+        toast(`${data.message || 'No se pudo aplicar la promoción'}${data.details ? `: ${data.details}` : ''}`);
         return;
       }
       if (data.permalink && data.promotionId && data.expiresAt) {
@@ -297,10 +297,10 @@ export default function DashboardPage() {
           },
         }));
       }
-      setNotification('Promoción aplicada');
+      toast('Promoción aplicada');
     } catch (error) {
       console.error('Error setting promotion:', error);
-      setNotification('No se pudo aplicar la promoción');
+      toast('No se pudo aplicar la promoción');
     } finally {
       setPromotionModal({ open: false, productId: undefined, discount: '', days: '' });
     }
@@ -308,7 +308,7 @@ export default function DashboardPage() {
 
   const handleCopyLink = (link: string) => {
     navigator.clipboard.writeText(link);
-    setNotification('Link copiado');
+    toast('Link copiado');
   };
 
   const handleMercadoLibreDisconnect = () => {
@@ -321,18 +321,18 @@ export default function DashboardPage() {
         method: 'POST',
       });
       if (response.ok) {
-        setNotification('Cuenta de MercadoLibre desconectada exitosamente');
+        toast('Cuenta de MercadoLibre desconectada exitosamente');
         const profileResponse = await fetch('/api/user/profile');
         if (profileResponse.ok) {
           const data = await profileResponse.json();
           setUserProfile(data);
         }
       } else {
-        setNotification('Error al desconectar la cuenta');
+        toast('Error al desconectar la cuenta');
       }
     } catch (error) {
       console.error('Error:', error);
-      setNotification('Error al desconectar la cuenta');
+      toast('Error al desconectar la cuenta');
     } finally {
       setDisconnectModal(false);
     }
@@ -387,11 +387,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <Fragment>
-      {notification && (
-        <Notification message={notification} onClose={() => setNotification(null)} />
-      )}
-      <Modal
+      <Fragment>
+        <Modal
         title="Enviar mensaje"
         isOpen={messageModal.open}
         onClose={() => setMessageModal({ open: false, customer: undefined, text: '' })}
