@@ -64,6 +64,7 @@ interface MLProduct {
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -82,7 +83,6 @@ export default function DashboardPage() {
   const [disconnectModal, setDisconnectModal] = useState(false);
   const appId = process.env.NEXT_PUBLIC_MERCADOLIBRE_APP_ID;
   const redirectUri = process.env.NEXT_PUBLIC_MERCADOLIBRE_REDIRECT_URI;
-  const { toast } = useToast();
 
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
