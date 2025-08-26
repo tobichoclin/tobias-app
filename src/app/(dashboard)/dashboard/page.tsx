@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useMemo, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment, use } from 'react';
+import { useToast } from "@/components/ui/Toast";
 
 // --- Funciones para PKCE ---
 function base64URLEncode(str: Buffer) {
@@ -141,13 +142,14 @@ export default function DashboardPage() {
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get('error');
     const success = urlParams.get('success');
-    
+    const { notify } = useToast();
+
     if (error === 'MLAccountAlreadyLinked') {
-      alert('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
+      notify('⚠️ Esta cuenta de MercadoLibre ya está conectada a otro usuario. Por favor, usa una cuenta diferente.');
     } else if (error === 'TokenError') {
-      alert('❌ Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
+      notify('❌ Error al conectar con MercadoLibre. Por favor, inténtalo de nuevo.');
     } else if (success === 'true') {
-      alert('✅ ¡Conexión con MercadoLibre exitosa!');
+      notify('✅ ¡Conexión con MercadoLibre exitosa!');
       // Recargar el perfil para mostrar la nueva conexión
       fetchUserProfile();
       fetchCustomers();
