@@ -44,6 +44,51 @@ async function getValidAccessToken(userId: string) {
   return user.mercadolibreAccessToken;
 }
 
+async function isSellerEligible(mlSellerId: string) {
+  const res = await fetch(`https://api.mercadolibre.com/users/${mlSellerId}`);
+  if (!res.ok) throw new Error('No se pudo verificar el vendedor');
+  const data = await res.json();
+  const level = data?.seller_reputation?.level_id || '';
+  const status = data?.seller_reputation?.status?.status || '';
+  const goodLevel = level.includes('green') || level.includes('yellow');
+  const activeStatus = status !== 'suspended';
+  return goodLevel && activeStatus;
+}
+
+async function isItemEligible(itemId: string, siteId: string, token: string) {
+  const res = await fetch(
+    `https://api.mercadolibre.com/seller-promotions/items/eligible?ids=${itemId}&site_id=${siteId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) throw new Error('No se pudo validar el \u00edtem');
+  const data = await res.json();
+  const eligibleIds =
+    data?.eligible_items?.map((item: { id: string }) => item.id) ?? [];
+  return eligibleIds.includes(itemId);
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForPromotionActive(
+  promotionId: string,
+  token: string
+) {
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch(
+      `https://api.mercadolibre.com/seller-promotions/promotions/${promotionId}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.status === 'active') return data;
+    }
+    await sleep(1000);
+  }
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies();
@@ -59,6 +104,21 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       return NextResponse.json({ message: 'Usuario no encontrado' }, { status: 404 });
+    }
+
+    if (!user.mercadolibreId) {
+      return NextResponse.json(
+        { message: 'Usuario sin cuenta de Mercado Libre' },
+        { status: 400 }
+      );
+    }
+
+    const sellerOk = await isSellerEligible(user.mercadolibreId);
+    if (!sellerOk) {
+      return NextResponse.json(
+        { message: 'Vendedor no elegible para promociones' },
+        { status: 400 }
+      );
     }
 
     const accessToken = await getValidAccessToken(userId);
@@ -84,19 +144,33 @@ export async function POST(request: Request) {
     const originalPrice = Number(productData?.price ?? 0);
     const marketplaceId = productData?.site_id || 'MLA';
 
-    const currencyId = productData?.currency_id || 'ARS';
-    const discountedPrice = Number(
-      (originalPrice * (1 - discount / 100)).toFixed(2)
-    );
+    if (productData?.condition !== 'new') {
+      return NextResponse.json(
+        { message: 'Solo se permiten productos nuevos en promociones' },
+        { status: 400 }
+      );
+    }
+
+    const itemOk = await isItemEligible(productId, marketplaceId, accessToken);
+    if (!itemOk) {
+      return NextResponse.json(
+        { message: 'La publicación no es elegible para promociones' },
+        { status: 400 }
+      );
+    }
 
     const promotionPayload = {
-      type: 'custom',
       site_id: marketplaceId,
-      value_type: 'PERCENTAGE',
-      value: discount,
+      type: 'PRICE_DISCOUNT',
       start_date: new Date().toISOString(),
-      finish_date: new Date(expiresAt).toISOString(),
-      items: [{ item_id: productId, price: discountedPrice, currency_id: currencyId }],
+      end_date: new Date(expiresAt).toISOString(),
+      items: [
+        {
+          item_id: productId,
+          discount_type: 'PERCENTAGE',
+          value: discount,
+        },
+      ],
     };
 
     const promoRes = await fetch(
@@ -131,14 +205,19 @@ export async function POST(request: Request) {
     }
     const promoData = await promoRes.json();
     const promotionId = promoData.id as string;
-    const expirationDate = promoData.finish_date || promoData.finishDate || expiresAt;
+    const activeData = await waitForPromotionActive(promotionId, accessToken);
+    const finalPromo = activeData || promoData;
+    const promotionLink =
+      finalPromo.promotion_link || finalPromo.permalink || productLink;
+    const expirationDate =
+      finalPromo.finish_date || finalPromo.end_date || expiresAt;
 
     await prisma.product.upsert({
       where: { id: productId },
       update: {
         promotionId,
         promotionExpiresAt: new Date(expirationDate),
-        promotionLink: productLink,
+        promotionLink,
       },
       create: {
         id: productId,
@@ -148,7 +227,7 @@ export async function POST(request: Request) {
         userId,
         promotionId,
         promotionExpiresAt: new Date(expirationDate),
-        promotionLink: productLink,
+        promotionLink,
       },
     });
 
@@ -165,7 +244,7 @@ export async function POST(request: Request) {
 
       if (!lastOrder) continue;
 
-      const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}. Aprovecha la oferta aquí: ${productLink}`;
+      const message = `¡Hola! Te ofrecemos un ${discount}% de descuento en nuestro producto ${productTitle}. Aprovecha la oferta aquí: ${promotionLink}`;
 
       try {
         const sendRes = await fetch(
