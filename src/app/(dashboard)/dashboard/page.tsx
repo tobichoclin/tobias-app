@@ -513,7 +513,7 @@ export default function DashboardPage() {
             ) : customersLoading ? (
               <p className="text-gray-600">Cargando...</p>
             ) : (
-              customers.length > 0 ? (
+              filteredCustomers.length > 0 ? (
                 <>
                   <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
@@ -528,27 +528,29 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {customers.map((customer) => (
-                          <tr key={customer.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">
-                              {customer.firstName || customer.lastName
-                                ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
-                                : '-'}
-                            </td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{customer.province || '-'}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">
-                              <button
-                                className="rounded bg-fiddo-blue px-3 py-1 text-white text-xs"
-                                onClick={() => setMessageModal({ open: true, customer, text: '' })}
-                              >
-                                Enviar mensaje
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {filteredCustomers
+                          .slice((customersPage - 1) * CUSTOMERS_PER_PAGE, customersPage * CUSTOMERS_PER_PAGE)
+                          .map((customer) => (
+                            <tr key={customer.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">
+                                {customer.firstName || customer.lastName
+                                  ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+                                  : '-'}
+                              </td>
+                              <td className="px-4 py-2 text-sm text-gray-900">{customer.province || '-'}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">
+                                <button
+                                  className="rounded bg-fiddo-blue px-3 py-1 text-white text-xs"
+                                  onClick={() => setMessageModal({ open: true, customer, text: '' })}
+                                >
+                                  Enviar mensaje
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   </div>
@@ -559,7 +561,7 @@ export default function DashboardPage() {
                       onClick={() => setCustomersPage((p) => Math.max(1, p - 1))}
                       disabled={customersPage === 1}
                     >Anterior</button>
-                    {Array.from({ length: Math.ceil(customersTotal / 20) }, (_, i) => i + 1).map((n) => (
+                    {Array.from({ length: Math.ceil(filteredCustomers.length / CUSTOMERS_PER_PAGE) }, (_, i) => i + 1).map((n) => (
                       <button
                         key={n}
                         className={`px-3 py-1 rounded ${n === customersPage ? 'bg-fiddo-orange text-white' : 'bg-neutral-100 text-gray-700'}`}
@@ -570,7 +572,7 @@ export default function DashboardPage() {
                     <button
                       className="px-3 py-1 rounded bg-neutral-200 text-gray-700 disabled:opacity-50"
                       onClick={() => setCustomersPage((p) => p + 1)}
-                      disabled={customersPage === Math.ceil(customersTotal / 20) || customersTotal === 0}
+                      disabled={customersPage === Math.ceil(filteredCustomers.length / CUSTOMERS_PER_PAGE) || filteredCustomers.length === 0}
                     >Siguiente</button>
                   </div>
                 </>
