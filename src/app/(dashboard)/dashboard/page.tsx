@@ -516,7 +516,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-fiddo-blue">Fiddo</h1>
+              <Image src="/fiddo-logo.svg" alt="Fiddo" width={100} height={32} />
               <p className="text-gray-600 mt-1">¡Bienvenido, {userProfile?.user.name}!</p>
             </div>
             <button

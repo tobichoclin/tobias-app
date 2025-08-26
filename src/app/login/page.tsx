@@ -1,21 +1,22 @@
 // src/app/login/page.tsx
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/Toast';
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -35,17 +36,17 @@ export default function LoginPage() {
 
     } catch (error: unknown) {
       console.error('Error al iniciar sesión:', error);
-      setError(error instanceof Error ? error.message : 'Algo salió mal');
+      toast(error instanceof Error ? error.message : 'Algo salió mal');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-fiddo-blue via-fiddo-turquoise to-fiddo-orange p-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-fiddo-blue">Fiddo</h1>
+          <Image src="/fiddo-logo.svg" alt="Fiddo" width={80} height={24} className="mx-auto" />
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
             Iniciar Sesión
           </h2>
@@ -95,8 +96,6 @@ export default function LoginPage() {
               />
             </div>
           </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div>
             <button
