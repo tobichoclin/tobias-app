@@ -26,7 +26,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="fixed right-4 bottom-4 space-y-2 z-50">
         {items.map(t => (
-          <div key={t.id} className="rounded-2xl shadow-lg px-4 py-3 bg-[color:var(--fiddo-blue)] text-white">
+          <div key={t.id} className="rounded-2xl shadow-lg px-4 py-3 bg-fiddo-orange text-white">
             {t.title && <div className="font-semibold">{t.title}</div>}
             <div className="text-sm">{t.message}</div>
           </div>

@@ -320,9 +320,18 @@ export async function GET() {
       });
     }
 
-    // 3. Devolver la lista de todos los clientes únicos que hemos guardado
+    // 3. Devolver la lista de clientes paginada
+    // @ts-ignore
+    const req = arguments[0];
+    const searchParams = req?.nextUrl?.searchParams || new URLSearchParams();
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    const total = await prisma.customer.count({ where: { userId: userId } });
     const customers = await prisma.customer.findMany({
       where: { userId: userId },
+      skip: offset,
+      take: limit,
     });
 
     const serializedCustomers = customers.map((c) => {
@@ -337,7 +346,7 @@ export async function GET() {
       };
     });
 
-    return NextResponse.json(serializedCustomers, { status: 200 });
+    return NextResponse.json({ items: serializedCustomers, total }, { status: 200 });
 
   } catch (error) {
     console.error('Error al obtener clientes:', error);

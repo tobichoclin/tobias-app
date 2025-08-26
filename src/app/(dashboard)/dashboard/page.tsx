@@ -52,6 +52,14 @@ interface MLProduct {
 }
 
 export default function DashboardPage() {
+  // Paginación productos
+  const PRODUCTS_PER_PAGE = 10;
+  const [productsPage, setProductsPage] = useState(1);
+  const [productsTotal, setProductsTotal] = useState(0);
+  // Paginación compradores
+  const CUSTOMERS_PER_PAGE = 20;
+  const [customersPage, setCustomersPage] = useState(1);
+  const [customersTotal, setCustomersTotal] = useState(0);
   const router = useRouter();
   const { notify } = useToast();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -83,6 +91,7 @@ export default function DashboardPage() {
     });
   }, [customers, purchaseFilter, provinceFilter]);
 
+  // 1. Cargar perfil de usuario solo al montar
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -97,25 +106,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-    const fetchCustomers = async () => {
-      try {
-        const response = await fetch("/api/customers");
-        if (response.ok) {
-          const data: Customer[] = await response.json();
-          setCustomers(data);
-          const provs = Array.from(new Set(data.map((c) => c.province).filter((p): p is string => Boolean(p)))).sort();
-          setAvailableProvinces(provs);
-        } else {
-          console.error("Error cargando clientes");
-        }
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setCustomersLoading(false);
-      }
-    };
     fetchUserProfile();
-    fetchCustomers();
     // Verificar si hay mensajes de error o éxito en la URL
     const urlParams = new URLSearchParams(window.location.search);
     const error = urlParams.get("error");
@@ -127,20 +118,48 @@ export default function DashboardPage() {
     } else if (success === "true") {
       notify("✅ ¡Conexión con MercadoLibre exitosa!");
       fetchUserProfile();
-      fetchCustomers();
     }
     if (error || success) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [notify]);
 
+  // 2. Cargar compradores cuando userProfile cambia y está conectado
+  useEffect(() => {
+    if (!userProfile?.mercadolibre.connected) return;
+    const fetchCustomers = async () => {
+      setCustomersLoading(true);
+      try {
+        const offset = (customersPage - 1) * CUSTOMERS_PER_PAGE;
+        const response = await fetch(`/api/customers?limit=${CUSTOMERS_PER_PAGE}&offset=${offset}`);
+        if (response.ok) {
+          const data = await response.json();
+          setCustomers(data.items);
+          setCustomersTotal(data.total);
+          const provs = Array.from(new Set(data.items.map((c: Customer) => c.province).filter((p: string | null): p is string => Boolean(p)))).sort();
+          setAvailableProvinces(provs as string[]);
+        } else {
+          console.error("Error cargando clientes");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setCustomersLoading(false);
+      }
+    };
+    fetchCustomers();
+  }, [userProfile, customersPage]);
+
   useEffect(() => {
     const fetchProducts = async () => {
+      setProductsLoading(true);
       try {
-        const response = await fetch("/api/products");
+        const offset = (productsPage - 1) * PRODUCTS_PER_PAGE;
+        const response = await fetch(`/api/products?limit=${PRODUCTS_PER_PAGE}&offset=${offset}`);
         if (!response.ok) throw new Error("Error al obtener productos");
-        const data: MLProduct[] = await response.json();
-        setProducts(data);
+        const data = await response.json();
+        setProducts(data.items);
+        setProductsTotal(data.total);
       } catch (error) {
         console.error("Error al obtener productos:", error);
       } finally {
@@ -150,7 +169,7 @@ export default function DashboardPage() {
     if (userProfile?.mercadolibre.connected) {
       fetchProducts();
     }
-  }, [userProfile]);
+  }, [userProfile, productsPage]);
 
   // Handlers para los modales y acciones
   const handleSendMessage = async () => {
@@ -425,12 +444,6 @@ export default function DashboardPage() {
                       </div>
                     </>
                   )}
-                  <div>
-                    <span className="text-gray-600">Token expira:</span>
-                    <span className="ml-2 font-medium">
-                      {userProfile.mercadolibre.expiresAt && new Date(userProfile.mercadolibre.expiresAt).toLocaleString()}
-                    </span>
-                  </div>
                   <button
                     onClick={handleMercadoLibreDisconnect}
                     className="w-full rounded-md bg-fiddo-orange/20 px-4 py-2 font-medium text-fiddo-orange transition-colors hover:bg-fiddo-orange/30"
@@ -495,57 +508,82 @@ export default function DashboardPage() {
                 Enviar mensaje a todos
               </button>
             </div>
-            {customersLoading ? (
+            {!userProfile?.mercadolibre.connected ? (
+              <p className="text-gray-600">Usuario no conectado a Mercado Libre.</p>
+            ) : customersLoading ? (
               <p className="text-gray-600">Cargando...</p>
             ) : (
-              filteredCustomers.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Provincia</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredCustomers.map((customer) => (
-                        <tr key={customer.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">
-                            {customer.firstName || customer.lastName
-                              ? `${customer.firstName ?? ""} ${customer.lastName ?? ""}`.trim()
-                              : "N/A"}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{customer.province || "N/A"}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
-                          <td className="px-4 py-2 text-sm">
-                            <button
-                              onClick={() => setMessageModal({ open: true, customer, text: "" })}
-                              className="text-fiddo-blue hover:underline"
-                            >
-                              Enviar mensaje
-                            </button>
-                          </td>
+              customers.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">ID</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nickname</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Nombre</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Provincia</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Compras</th>
+                          <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">Acciones</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {customers.map((customer) => (
+                          <tr key={customer.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 text-sm text-gray-900">{customer.mercadolibreId}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{customer.nickname}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              {customer.firstName || customer.lastName
+                                ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim()
+                                : '-'}
+                            </td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{customer.province || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{customer.purchaseCount}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              <button
+                                className="rounded bg-fiddo-blue px-3 py-1 text-white text-xs"
+                                onClick={() => setMessageModal({ open: true, customer, text: '' })}
+                              >
+                                Enviar mensaje
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Paginación compradores */}
+                  <div className="flex justify-center items-center gap-2 mt-6">
+                    <button
+                      className="px-3 py-1 rounded bg-neutral-200 text-gray-700 disabled:opacity-50"
+                      onClick={() => setCustomersPage((p) => Math.max(1, p - 1))}
+                      disabled={customersPage === 1}
+                    >Anterior</button>
+                    {Array.from({ length: Math.ceil(customersTotal / 20) }, (_, i) => i + 1).map((n) => (
+                      <button
+                        key={n}
+                        className={`px-3 py-1 rounded ${n === customersPage ? 'bg-fiddo-orange text-white' : 'bg-neutral-100 text-gray-700'}`}
+                        onClick={() => setCustomersPage(n)}
+                        disabled={n === customersPage}
+                      >{n}</button>
+                    ))}
+                    <button
+                      className="px-3 py-1 rounded bg-neutral-200 text-gray-700 disabled:opacity-50"
+                      onClick={() => setCustomersPage((p) => p + 1)}
+                      disabled={customersPage === Math.ceil(customersTotal / 20) || customersTotal === 0}
+                    >Siguiente</button>
+                  </div>
+                </>
               ) : (
-                <p className="text-gray-600">Aún no hay compradores.</p>
+                <p className="text-gray-600">No hay compradores.</p>
               )
             )}
           </div>
-
-          {/* Productos activos */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 mt-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-4">Productos</h2>
-            {productsLoading ? (
+            {!userProfile?.mercadolibre.connected ? (
+              <p className="text-gray-600">Usuario no conectado a Mercado Libre.</p>
+            ) : productsLoading ? (
               <p className="text-gray-600">Cargando...</p>
             ) : (
               products.length > 0 ? (

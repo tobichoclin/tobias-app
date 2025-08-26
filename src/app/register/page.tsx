@@ -34,10 +34,18 @@ export default function RegisterPage() {
         throw new Error(data.message || 'Error al registrar el usuario.');
       }
 
-      // Si el registro es exitoso, redirigir al login
-      console.log('Usuario registrado con éxito:', data);
-      notify('Usuario registrado con éxito');
-      router.push('/login');
+
+      // Login automático tras registro exitoso
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      if (!loginResponse.ok) {
+        throw new Error('Usuario registrado pero error al iniciar sesión.');
+      }
+      notify('Usuario registrado y logueado con éxito');
+      router.push('/dashboard');
 
     } catch (error: unknown) {
       console.error('Error en el registro:', error);
