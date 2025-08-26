@@ -1,22 +1,23 @@
 // src/app/register/page.tsx
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation'; // Hook para la redirección
+import { useToast } from '@/components/ui/Toast';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await fetch('/api/auth/register', {
@@ -35,26 +36,28 @@ export default function RegisterPage() {
 
       // Si el registro es exitoso, redirigir al login
       console.log('Usuario registrado con éxito:', data);
+      toast('Usuario registrado con éxito');
       router.push('/login');
 
     } catch (error: unknown) {
       console.error('Error en el registro:', error);
-      setError(error instanceof Error ? error.message : 'Error en el registro');
+      toast(error instanceof Error ? error.message : 'Error en el registro');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-fiddo-blue via-fiddo-turquoise to-fiddo-orange p-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          <Image src="/fiddo-logo.svg" alt="Fiddo" width={80} height={24} className="mx-auto" />
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
             Crear una Cuenta
-          </h1>
+          </h2>
           <p className="mt-2 text-sm text-gray-600">
             ¿Ya tienes una?{' '}
-            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/login" className="font-medium text-fiddo-orange hover:text-fiddo-turquoise">
               Inicia sesión
             </Link>
           </p>
@@ -66,7 +69,7 @@ export default function RegisterPage() {
               Nombre
             </label>
             <div className="mt-1">
-              <input id="name" name="name" type="text" required placeholder="Tu Nombre" value={name} onChange={(e) => setName(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm" />
+              <input id="name" name="name" type="text" required placeholder="Tu Nombre" value={name} onChange={(e) => setName(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-fiddo-turquoise focus:outline-none focus:ring-fiddo-turquoise sm:text-sm" />
             </div>
           </div>
           
@@ -75,7 +78,7 @@ export default function RegisterPage() {
               Correo Electrónico
             </label>
             <div className="mt-1">
-              <input id="email" name="email" type="email" required placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm" />
+              <input id="email" name="email" type="email" required placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-fiddo-turquoise focus:outline-none focus:ring-fiddo-turquoise sm:text-sm" />
             </div>
           </div>
 
@@ -84,14 +87,12 @@ export default function RegisterPage() {
               Contraseña
             </label>
             <div className="mt-1">
-              <input id="password" name="password" type="password" required minLength={8} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm" />
+              <input id="password" name="password" type="password" required minLength={8} placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-fiddo-turquoise focus:outline-none focus:ring-fiddo-turquoise sm:text-sm" />
             </div>
           </div>
-          
-          {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div>
-            <button type="submit" disabled={isLoading} className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+            <button type="submit" disabled={isLoading} className="flex w-full justify-center rounded-md border border-transparent bg-fiddo-blue py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-fiddo-turquoise focus:outline-none focus:ring-2 focus:ring-fiddo-turquoise focus:ring-offset-2 disabled:opacity-50">
               {isLoading ? 'Registrando...' : 'Crear Cuenta'}
             </button>
           </div>
