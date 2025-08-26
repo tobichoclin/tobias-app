@@ -45,12 +45,13 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md space-y-8 rounded-xl bg-white p-8 shadow-lg">
         <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-4xl font-bold text-fiddo-blue">Fiddo</h1>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-gray-900">
             Iniciar Sesión
-          </h1>
+          </h2>
           <p className="mt-2 text-sm text-gray-600">
             ¿Aún no tienes cuenta?{' '}
-            <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
+            <Link href="/register" className="font-medium text-fiddo-orange hover:text-fiddo-turquoise">
               Regístrate aquí
             </Link>
           </p>
@@ -71,7 +72,7 @@ export default function LoginPage() {
                 placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-fiddo-turquoise focus:outline-none focus:ring-fiddo-turquoise sm:text-sm"
               />
             </div>
           </div>
@@ -90,7 +91,7 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
+                className="block w-full appearance-none rounded-md border border-gray-300 px-3 py-2 placeholder-gray-400 shadow-sm focus:border-fiddo-turquoise focus:outline-none focus:ring-fiddo-turquoise sm:text-sm"
               />
             </div>
           </div>
@@ -101,7 +102,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              className="flex w-full justify-center rounded-md border border-transparent bg-fiddo-blue py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-fiddo-turquoise focus:outline-none focus:ring-2 focus:ring-fiddo-turquoise focus:ring-offset-2 disabled:opacity-50"
             >
               {isLoading ? 'Ingresando...' : 'Ingresar'}
             </button>

@@ -7,7 +7,15 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        fiddo: {
+          blue: '#1e40af',
+          orange: '#f97316',
+          turquoise: '#14b8a6',
+        },
+      },
+    },
   },
   plugins: [],
 };
