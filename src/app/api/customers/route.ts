@@ -1,5 +1,5 @@
 // src/app/api/customers/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
@@ -80,7 +80,7 @@ async function getValidAccessToken(userId: string) {
 }
 
 // --- API PRINCIPAL PARA OBTENER CLIENTES ---
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const sessionToken = cookieStore.get('session_token')?.value;
@@ -321,9 +321,7 @@ export async function GET() {
     }
 
     // 3. Devolver la lista de clientes paginada
-    // @ts-ignore
-    const req = arguments[0];
-    const searchParams = req?.nextUrl?.searchParams || new URLSearchParams();
+    const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get('limit') || '20', 10);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
