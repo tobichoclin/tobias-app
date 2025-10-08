@@ -28,6 +28,13 @@ model User {
   mercadolibreAccessToken    String?   @db.Text
   mercadolibreRefreshToken   String?   @db.Text
   mercadolibreTokenExpiresAt DateTime?
+
+  // Campos para la integración con Tienda Nube
+  tiendanubeStoreId    String?   @unique
+  tiendanubeUserId     String?
+  tiendanubeAccessToken String?  @db.Text
+  tiendanubeTokenType   String?
+  tiendanubeScope       String?
 }
 
 model Product {

@@ -1,12 +1,12 @@
 // src/app/api/products/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { jwtVerify } from 'jose';
 import { cookies } from 'next/headers';
 
 const prisma = new PrismaClient();
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get('session_token')?.value;
@@ -34,10 +34,8 @@ export async function GET() {
       );
     }
 
-  // PAGINACION
-  // @ts-ignore
-  const req = arguments[0];
-  const searchParams = req?.nextUrl?.searchParams || new URLSearchParams();
+  // Paginación
+  const searchParams = request.nextUrl.searchParams;
   const limit = parseInt(searchParams.get('limit') || '10', 10);
   const offset = parseInt(searchParams.get('offset') || '0', 10);
 

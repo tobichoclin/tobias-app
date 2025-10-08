@@ -31,6 +31,11 @@ export async function GET() {
         mercadolibreId: true,
         mercadolibreAccessToken: true,
         mercadolibreTokenExpiresAt: true,
+        tiendanubeStoreId: true,
+        tiendanubeUserId: true,
+        tiendanubeAccessToken: true,
+        tiendanubeTokenType: true,
+        tiendanubeScope: true,
         createdAt: true,
       },
     });
@@ -65,6 +70,33 @@ export async function GET() {
       }
     }
 
+    const isTiendaNubeConnected = !!(
+      user.tiendanubeStoreId &&
+      user.tiendanubeAccessToken
+    );
+
+    let tiendanubeStoreProfile: Record<string, unknown> | null = null;
+    if (isTiendaNubeConnected && user.tiendanubeStoreId && user.tiendanubeAccessToken) {
+      try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': process.env.TIENDANUBE_USER_AGENT || 'Fiddo-App (support@fiddo.app)',
+          Authentication: `bearer ${user.tiendanubeAccessToken}`,
+          Authorization: `Bearer ${user.tiendanubeAccessToken}`,
+        };
+        const storeResponse = await fetch(`https://api.tiendanube.com/v1/${user.tiendanubeStoreId}/store`, {
+          headers,
+          cache: 'no-store',
+        });
+        if (storeResponse.ok) {
+          tiendanubeStoreProfile = await storeResponse.json();
+        }
+      } catch (error) {
+        console.log('Error obteniendo perfil de Tienda Nube:', error);
+      }
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -77,7 +109,15 @@ export async function GET() {
         userId: user.mercadolibreId,
         expiresAt: user.mercadolibreTokenExpiresAt,
         profile: mercadolibreProfile,
-      }
+      },
+      tiendanube: {
+        connected: isTiendaNubeConnected,
+        storeId: user.tiendanubeStoreId,
+        userId: user.tiendanubeUserId,
+        scope: user.tiendanubeScope,
+        tokenType: user.tiendanubeTokenType,
+        profile: tiendanubeStoreProfile,
+      },
     });
 
   } catch (error) {
